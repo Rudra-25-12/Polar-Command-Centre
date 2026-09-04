@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AlertsRouteImport } from './routes/alerts'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DataSourcesRouteImport } from './routes/data-sources'
 import { Route as EnvironmentalRouteImport } from './routes/environmental'
 import { Route as ForecastRouteImport } from './routes/forecast'
@@ -27,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const AlertsRoute = AlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DataSourcesRoute = DataSourcesRouteImport.update({
@@ -68,6 +74,7 @@ const SustainabilityRoute = SustainabilityRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alerts': typeof AlertsRoute
+  '/dashboard': typeof DashboardRoute
   '/data-sources': typeof DataSourcesRoute
   '/environmental': typeof EnvironmentalRoute
   '/forecast': typeof ForecastRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alerts': typeof AlertsRoute
+  '/dashboard': typeof DashboardRoute
   '/data-sources': typeof DataSourcesRoute
   '/environmental': typeof EnvironmentalRoute
   '/forecast': typeof ForecastRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alerts': typeof AlertsRoute
+  '/dashboard': typeof DashboardRoute
   '/data-sources': typeof DataSourcesRoute
   '/environmental': typeof EnvironmentalRoute
   '/forecast': typeof ForecastRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alerts'
+    | '/dashboard'
     | '/data-sources'
     | '/environmental'
     | '/forecast'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/alerts'
+    | '/dashboard'
     | '/data-sources'
     | '/environmental'
     | '/forecast'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alerts'
+    | '/dashboard'
     | '/data-sources'
     | '/environmental'
     | '/forecast'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlertsRoute: typeof AlertsRoute
+  DashboardRoute: typeof DashboardRoute
   DataSourcesRoute: typeof DataSourcesRoute
   EnvironmentalRoute: typeof EnvironmentalRoute
   ForecastRoute: typeof ForecastRoute
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/alerts'
       fullPath: '/alerts'
       preLoaderRoute: typeof AlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/data-sources': {
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertsRoute: AlertsRoute,
+  DashboardRoute: DashboardRoute,
   DataSourcesRoute: DataSourcesRoute,
   EnvironmentalRoute: EnvironmentalRoute,
   ForecastRoute: ForecastRoute,

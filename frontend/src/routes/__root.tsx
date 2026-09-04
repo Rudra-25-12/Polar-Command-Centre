@@ -38,11 +38,16 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("Root ErrorComponent caught:", error);
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+
+  const errorText =
+    error?.message ||
+    (typeof error === "string" ? error : JSON.stringify(error, null, 2)) ||
+    "An unexpected application error occurred.";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -53,12 +58,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
-        {error?.message && (
-          <pre className="mt-3 rounded border border-border/70 bg-card p-3 text-left font-mono text-xs text-destructive overflow-x-auto whitespace-pre-wrap max-h-60">
-            {error.message}
-            {error?.stack && `\n\n${error.stack}`}
-          </pre>
-        )}
+        <pre className="mt-3 rounded border border-border/70 bg-card p-3 text-left font-mono text-xs text-destructive overflow-x-auto whitespace-pre-wrap max-h-60">
+          {errorText}
+          {error?.stack && `\n\n${error.stack}`}
+        </pre>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -86,11 +89,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Polar Station Energy Command" },
-      { name: "description", content: "Smart Energy Management Dashboard for India's Polar Research Stations" },
-      { name: "author", content: "Antigravity AI" },
-      { property: "og:title", content: "Polar Station Energy Command" },
-      { property: "og:description", content: "Smart Energy Management Dashboard for India's Polar Research Stations" },
+      { name: "theme-color", content: "#060b14" },
+      { title: "Polar Command Centre — India's Polar Research Energy Command" },
+      { name: "description", content: "Smart Energy Management Dashboard for India's Polar Research Stations: Bharati, Maitri and Himadri." },
+      { name: "author", content: "National Centre for Polar and Ocean Research (NCPOR)" },
+      { property: "og:title", content: "Polar Command Centre — India's Polar Research Energy Command" },
+      { property: "og:description", content: "Smart Energy Management Dashboard for India's Polar Research Stations: Bharati, Maitri and Himadri." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -106,6 +110,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
     ],
   }),
   shellComponent: RootShell,
@@ -116,7 +121,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <HeadContent />
       </head>

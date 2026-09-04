@@ -171,4 +171,3 @@ export function useLiveValue(base: number, amplitude = 0.015, intervalMs = 2200)
 
   return value;
 }
-

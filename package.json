@@ -1,0 +1,12 @@
+{
+  "name": "polar-command-centre",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Energy Management & SCADA Telemetry Dashboard for India's Polar Research Stations (Bharati, Maitri, Himadri) — NCPOR",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "lint": "cd frontend && npm run lint"
+  }
+}

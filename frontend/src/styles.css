@@ -6,17 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Design System - Polar Clean White & Emerald Green Theme
  */
 
 @theme inline {
@@ -69,48 +59,61 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.17 0.023 264);
-  --foreground: oklch(0.96 0.006 250);
-  --card: oklch(0.213 0.026 264);
-  --card-foreground: oklch(0.96 0.006 250);
-  --popover: oklch(0.203 0.026 264);
-  --popover-foreground: oklch(0.96 0.006 250);
-  --primary: oklch(0.78 0.14 200);
-  --primary-foreground: oklch(0.17 0.023 264);
-  --secondary: oklch(0.26 0.027 264);
-  --secondary-foreground: oklch(0.93 0.008 250);
-  --muted: oklch(0.25 0.025 264);
-  --muted-foreground: oklch(0.68 0.02 258);
-  --accent: oklch(0.29 0.035 250);
-  --accent-foreground: oklch(0.96 0.006 250);
-  --destructive: oklch(0.62 0.21 25);
-  --destructive-foreground: oklch(0.97 0.01 250);
-  --border: oklch(0.31 0.026 262);
-  --input: oklch(0.29 0.026 262);
-  --ring: oklch(0.78 0.14 200);
+  --radius: 0.75rem;
+  /* Pristine Ice White Background */
+  --background: oklch(0.985 0.005 200);
+  --foreground: oklch(0.18 0.035 260);
 
-  --nominal: oklch(0.79 0.17 155);
-  --warning: oklch(0.83 0.16 82);
-  --critical: oklch(0.66 0.21 25);
-  --grid-line: oklch(0.31 0.026 262);
+  /* Elevated Pure White Cards */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.035 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.035 260);
 
-  --chart-1: oklch(0.78 0.14 200);
-  --chart-2: oklch(0.79 0.17 155);
-  --chart-3: oklch(0.83 0.16 82);
-  --chart-4: oklch(0.66 0.21 25);
-  --chart-5: oklch(0.7 0.12 275);
+  /* Vibrant Clean Emerald Green Primary */
+  --primary: oklch(0.6 0.19 160);
+  --primary-foreground: oklch(0.99 0 0);
 
-  --sidebar: oklch(0.147 0.022 264);
-  --sidebar-foreground: oklch(0.9 0.008 250);
-  --sidebar-primary: oklch(0.78 0.14 200);
-  --sidebar-primary-foreground: oklch(0.17 0.023 264);
-  --sidebar-accent: oklch(0.24 0.028 264);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
-  --sidebar-border: oklch(0.27 0.024 262);
-  --sidebar-ring: oklch(0.78 0.14 200);
+  /* Secondary & Muted Tints */
+  --secondary: oklch(0.95 0.015 195);
+  --secondary-foreground: oklch(0.2 0.04 260);
+  --muted: oklch(0.96 0.008 200);
+  --muted-foreground: oklch(0.45 0.025 255);
 
-  --glow-primary: 0 0 0 1px oklch(0.78 0.14 200 / 0.25), 0 0 24px -6px oklch(0.78 0.14 200 / 0.35);
+  --accent: oklch(0.95 0.025 160);
+  --accent-foreground: oklch(0.18 0.04 160);
+
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.91 0.01 240);
+  --input: oklch(0.93 0.01 240);
+  --ring: oklch(0.6 0.19 160);
+
+  /* Status Indicators */
+  --nominal: oklch(0.6 0.19 160);
+  --warning: oklch(0.72 0.18 75);
+  --critical: oklch(0.58 0.22 25);
+  --grid-line: oklch(0.92 0.008 240);
+
+  /* Charts */
+  --chart-1: oklch(0.6 0.19 160); /* Emerald Green */
+  --chart-2: oklch(0.58 0.15 210); /* Cyan Blue */
+  --chart-3: oklch(0.72 0.18 75);  /* Amber */
+  --chart-4: oklch(0.58 0.22 25);  /* Red */
+  --chart-5: oklch(0.55 0.14 275); /* Indigo */
+
+  /* Sidebar - Light Glacier Ice Sidebar */
+  --sidebar: oklch(0.97 0.008 200);
+  --sidebar-foreground: oklch(0.22 0.035 260);
+  --sidebar-primary: oklch(0.6 0.19 160);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.93 0.028 160);
+  --sidebar-accent-foreground: oklch(0.18 0.04 160);
+  --sidebar-border: oklch(0.91 0.01 240);
+  --sidebar-ring: oklch(0.6 0.19 160);
+
+  --glow-primary: 0 0 0 1px oklch(0.6 0.19 160 / 0.2), 0 4px 20px -4px oklch(0.6 0.19 160 / 0.25);
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono-data: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
@@ -129,13 +132,13 @@
 @layer base {
   html {
     font-family: var(--font-display);
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
     background-image:
-      radial-gradient(80rem 40rem at 15% -10%, oklch(0.78 0.14 200 / 0.07), transparent),
-      radial-gradient(60rem 40rem at 110% 0%, oklch(0.7 0.12 275 / 0.07), transparent);
+      radial-gradient(80rem 40rem at 20% -10%, oklch(0.6 0.19 160 / 0.04), transparent),
+      radial-gradient(60rem 40rem at 100% 0%, oklch(0.58 0.15 210 / 0.04), transparent);
     background-attachment: fixed;
   }
 }
@@ -147,13 +150,10 @@
 }
 
 @utility panel {
-  background: linear-gradient(
-    160deg,
-    color-mix(in oklab, var(--card) 96%, white 4%),
-    var(--card)
-  );
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
 }
 
 @utility glow-ring {
@@ -167,4 +167,21 @@
 
 @utility live-dot {
   animation: tick-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes light-sweep {
+  0% { transform: translateX(-100%); opacity: 0; }
+  30% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translateX(250%); opacity: 0; }
+}
+
+@utility wordmark-light-sweep {
+  animation: light-sweep 2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s 1 forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wordmark-light-sweep {
+    display: none !important;
+  }
 }
