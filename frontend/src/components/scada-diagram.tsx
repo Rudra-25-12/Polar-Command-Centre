@@ -53,12 +53,12 @@ export function ScadaDiagram() {
           </span>
 
           {/* Genset A */}
-          <div className={cn("rounded-lg border p-3 text-xs transition-all", genA ? "border-emerald-500/50 bg-emerald-950/20" : "border-border/60 bg-muted/20 opacity-60")}>
+          <div className={cn("rounded-lg border p-3 text-xs transition-all", genA ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/30" : "border-border/60 bg-muted/20 opacity-60")}>
             <div className="flex items-center justify-between">
               <span className="font-semibold text-foreground">Genset #1 (CHP)</span>
               <button
                 onClick={() => setGenA(!genA)}
-                className={cn("rounded p-1 text-[10px] font-bold uppercase border", genA ? "bg-emerald-500/30 text-emerald-300 border-emerald-500/50" : "bg-muted text-muted-foreground border-border")}
+                className={cn("rounded p-1 text-[10px] font-bold uppercase border cursor-pointer", genA ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40" : "bg-muted text-muted-foreground border-border")}
               >
                 {genA ? "ONLINE" : "OFFLINE"}
               </button>
@@ -70,12 +70,12 @@ export function ScadaDiagram() {
           </div>
 
           {/* Genset B */}
-          <div className={cn("rounded-lg border p-3 text-xs transition-all", genB ? "border-emerald-500/50 bg-emerald-950/20" : "border-border/60 bg-muted/20 opacity-60")}>
+          <div className={cn("rounded-lg border p-3 text-xs transition-all", genB ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/30" : "border-border/60 bg-muted/20 opacity-60")}>
             <div className="flex items-center justify-between">
               <span className="font-semibold text-foreground">Genset #2 (CHP)</span>
               <button
                 onClick={() => setGenB(!genB)}
-                className={cn("rounded p-1 text-[10px] font-bold uppercase border", genB ? "bg-emerald-500/30 text-emerald-300 border-emerald-500/50" : "bg-muted text-muted-foreground border-border")}
+                className={cn("rounded p-1 text-[10px] font-bold uppercase border cursor-pointer", genB ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40" : "bg-muted text-muted-foreground border-border")}
               >
                 {genB ? "ONLINE" : "OFFLINE"}
               </button>
@@ -87,12 +87,12 @@ export function ScadaDiagram() {
           </div>
 
           {/* Genset C Standby */}
-          <div className={cn("rounded-lg border p-3 text-xs transition-all", genCStandby ? "border-amber-500/50 bg-amber-950/20" : "border-border/60 bg-muted/20 opacity-60")}>
+          <div className={cn("rounded-lg border p-3 text-xs transition-all", genCStandby ? "border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/30" : "border-border/60 bg-muted/20 opacity-60")}>
             <div className="flex items-center justify-between">
               <span className="font-semibold text-foreground">Genset #3 (Standby)</span>
               <button
                 onClick={() => setGenCStandby(!genCStandby)}
-                className={cn("rounded p-1 text-[10px] font-bold uppercase border", genCStandby ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-muted text-muted-foreground border-border")}
+                className={cn("rounded p-1 text-[10px] font-bold uppercase border cursor-pointer", genCStandby ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40" : "bg-muted text-muted-foreground border-border")}
               >
                 {genCStandby ? "STANDBY ONLINE" : "STANDBY IDLE"}
               </button>

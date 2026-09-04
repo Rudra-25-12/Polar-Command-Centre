@@ -55,7 +55,7 @@ function EnvironmentalPage() {
 
       {/* Himadri NPDC Sensor Array Note */}
       {station.id === "himadri" && (
-        <div className="mb-4 rounded-md border border-sky-500/30 bg-sky-950/20 p-3 text-xs text-sky-200 backdrop-blur">
+        <div className="mb-4 rounded-xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-950/30 p-4 text-xs leading-relaxed text-sky-950 dark:text-sky-200 shadow-xs">
           ℹ️ <strong>NCPOR NPDC Sensor Alignment:</strong> Himadri physical station sensor array records Ambient Temperature (+4.8 °C summer avg), Humidity, Air Pressure, and Precipitation. Wind telemetry is imported from the Ny-Ålesund communal weather station mast.
         </div>
       )}

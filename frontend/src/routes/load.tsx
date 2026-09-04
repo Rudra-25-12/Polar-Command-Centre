@@ -118,12 +118,12 @@ function LoadPage() {
       />
 
       {/* Critical Thermal Note Banner */}
-      <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-950/20 p-4 text-xs text-amber-200 backdrop-blur">
-        <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-amber-400">
-          <Flame className="size-4" />
+      <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs leading-relaxed text-amber-950 dark:text-amber-100 shadow-xs">
+        <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
+          <Flame className="size-4 text-amber-600 dark:text-amber-400" />
           <span>Thermal & Electrical Coupling Warning</span>
         </div>
-        <p className="mt-1 text-amber-200/80 leading-relaxed">
+        <p className="mt-1.5 text-amber-900/90 dark:text-amber-200/90 font-medium">
           Space heating and water melting draw directly from the primary station fuel pool via combined heat-and-power (CHP) coolant loops and supplementary hydronic boilers. Increasing indoor heating during polar blizzards accelerates overall tank depletion at the exact same rate as electrical load spikes.
         </p>
       </div>
@@ -143,28 +143,20 @@ function LoadPage() {
               label={label}
               value={String(pct)}
               unit="% of load"
-              hint={`Current draw ≈ ${kw} kW`}
-              source="Sub-Metering Array"
-            >
-              <div className="mt-3 flex items-center justify-between">
-                <Icon className="size-4 text-muted-foreground" />
-                <span className="data-num text-xs font-semibold text-foreground">{kw} kW</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-muted/40">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
-              </div>
-            </StatCard>
+              icon={Icon}
+              hint={`Estimated ${kw} kW active load`}
+              source="Bus Telemetry"
+            />
           );
         })}
       </div>
 
-      {/* SIH Differentiator Section: Safety-Tiered Load Shedding & Shiftable Load Recommendations */}
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {/* Safety-Tiered Load Shedding Controller */}
+      {/* Interactive Human-in-the-Loop Load Shedding Control Panel */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel
-          title="Safety-Tiered Load Shedding Controller"
-          description="Human-in-the-loop approval workflow for emergency load reduction under critical fuel windows."
-          source="SCADA Interlock Controller"
+          title="Human-in-the-Loop Load Shedding Override"
+          description="Select non-essential circuits to drop power draw in case of low reserve or generator fault."
+          source="Microgrid Control Logic"
         >
           <div className="space-y-3">
             {LOAD_SHED_TIERS.map((t) => {
@@ -175,13 +167,13 @@ function LoadPage() {
                   className={cn(
                     "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3.5 transition-all text-xs",
                     isApproved
-                      ? "border-amber-500/50 bg-amber-950/20 text-amber-100"
+                      ? "border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 shadow-xs"
                       : "border-border/70 bg-card/40 text-muted-foreground hover:border-border",
                   )}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 font-semibold">
-                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", isApproved ? "bg-amber-500 text-black" : "bg-muted text-foreground")}>
+                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", isApproved ? "bg-amber-500 text-slate-950" : "bg-muted text-foreground")}>
                         {t.tier}
                       </span>
                       <span className="text-foreground">{t.name}</span>
@@ -189,7 +181,7 @@ function LoadPage() {
                     <div className="mt-1 flex items-center gap-3 text-[11px]">
                       <span>Reduction: <strong className="data-num text-primary">-{t.kwReduction} kW</strong></span>
                       <span>Fuel saved: <strong className="data-num text-nominal">+{t.fuelSavedPerDay} L/day</strong></span>
-                      <span className={cn(t.risk === "Low Risk" ? "text-emerald-400" : t.risk === "Medium Risk" ? "text-amber-400" : "text-rose-400")}>
+                      <span className={cn(t.risk === "Low Risk" ? "text-emerald-600 dark:text-emerald-400 font-semibold" : t.risk === "Medium Risk" ? "text-amber-700 dark:text-amber-400 font-semibold" : "text-rose-600 dark:text-rose-400 font-semibold")}>
                         {t.risk}
                       </span>
                     </div>
@@ -198,9 +190,9 @@ function LoadPage() {
                   <button
                     onClick={() => toggleTier(t.id)}
                     className={cn(
-                      "rounded-md border px-3 py-1.5 text-xs font-semibold transition-all",
+                      "rounded-md border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
                       isApproved
-                        ? "border-amber-400 bg-amber-500/20 text-amber-300"
+                        ? "border-amber-500 bg-amber-500/20 text-amber-900 dark:text-amber-300 font-bold"
                         : "border-border/80 bg-muted/30 text-foreground hover:bg-muted/60",
                     )}
                   >
