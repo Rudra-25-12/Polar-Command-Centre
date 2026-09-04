@@ -231,25 +231,27 @@ export function LandingPage() {
       {/* Main Page Layout Container */}
       <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-8 sm:space-y-10">
         {/* Brand Header */}
-        <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-          <div className="flex items-center gap-3">
-            <picture>
-              <source srcSet="/logo.webp" type="image/webp" />
-              <img
-                src="/logo.png"
-                alt="Polar Energy Logo"
-                width={190}
-                height={48}
-                loading="eager"
-                decoding="async"
-                className="h-10 sm:h-12 w-auto object-contain"
-              />
-            </picture>
-            <div>
-              <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-sky-400 block">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+          <div className="flex items-center gap-4">
+            <div className="rounded-xl bg-white p-2 shadow-md border border-slate-700/50 shrink-0 transition-transform hover:scale-105">
+              <picture>
+                <source srcSet="/logo.webp" type="image/webp" />
+                <img
+                  src="/logo.png"
+                  alt="Polar Energy Logo"
+                  width={240}
+                  height={90}
+                  loading="eager"
+                  decoding="async"
+                  className="h-12 sm:h-16 md:h-20 w-auto object-contain"
+                />
+              </picture>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-[0.2em] text-sky-400 block">
                 NCPOR · Ministry of Earth Sciences, India
               </span>
-              <h1 className="text-base font-bold tracking-wider text-slate-100 uppercase">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-wider text-slate-100 uppercase">
                 POLAR COMMAND CENTRE
               </h1>
             </div>

@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 height={40}
                 loading="eager"
                 decoding="async"
-                className="h-10 w-auto object-contain mx-auto transition-transform group-hover:scale-105"
+                className="h-12 sm:h-14 w-auto object-contain mx-auto transition-transform group-hover:scale-105"
               />
             </picture>
           </Link>
