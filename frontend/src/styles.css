@@ -123,23 +123,12 @@
     border-color: var(--color-border);
   }
 
+  html,
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-  }
-}
-
-@layer base {
-  html {
+    background-color: #060b14;
+    color: #f8fafc;
     font-family: var(--font-display);
-    color-scheme: light;
-  }
-
-  body {
-    background-image:
-      radial-gradient(80rem 40rem at 20% -10%, oklch(0.6 0.19 160 / 0.04), transparent),
-      radial-gradient(60rem 40rem at 100% 0%, oklch(0.58 0.15 210 / 0.04), transparent);
-    background-attachment: fixed;
+    color-scheme: dark;
   }
 }
 
