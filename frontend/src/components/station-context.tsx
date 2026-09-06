@@ -221,10 +221,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
     async function refreshFuel() {
       try {
         const curStation = STATIONS[stationId];
-        const [fuelData, forecast] = await Promise.all([
-          fetchFuel(stationId),
-          fetchFuelForecast(stationId),
-        ]);
+        const fuelData = await fetchFuel(stationId);
         if (cancelled) return;
 
         const allReadings = fuelData.fuel ?? [];
@@ -234,22 +231,33 @@ export function StationProvider({ children }: { children: ReactNode }) {
             ? allReadings.reduce((sum: number, r: any) => sum + r.diesel_consumed_today, 0) / allReadings.length
             : curStation.dailyConsumptionL;
 
-          const history = [...allReadings].reverse().map((r: any) => ({
+          // Keep readings in chronological order (oldest to newest) for Recharts XAxis
+          const history = allReadings.map((r: any) => ({
             date: r.timestamp.slice(5, 10),
             litres: Math.round(r.diesel_consumed_today),
           }));
 
-          setLiveFuel({
+          setLiveFuel((prev) => ({
             remainingL: latest.diesel_liters_remaining,
             capacityL: curStation.fuelCapacityL,
             percent: (latest.diesel_liters_remaining / curStation.fuelCapacityL) * 100,
-            runwayDays: forecast.days_remaining ?? null,
-            runwayConfidence: forecast.confidence_range
-              ? { min: forecast.confidence_range.min_days, max: forecast.confidence_range.max_days }
-              : null,
+            runwayDays: prev?.runwayDays ?? Math.round(latest.diesel_liters_remaining / avgConsumption),
+            runwayConfidence: prev?.runwayConfidence ?? null,
             avgDailyConsumptionL: Math.round(avgConsumption),
             history,
-          });
+          }));
+
+          // Fetch Prophet forecast asynchronously in background
+          fetchFuelForecast(stationId).then((forecast) => {
+            if (cancelled || !forecast) return;
+            setLiveFuel((prev) => prev ? {
+              ...prev,
+              runwayDays: forecast.days_remaining ?? prev.runwayDays,
+              runwayConfidence: forecast.confidence_range
+                ? { min: forecast.confidence_range.min_days, max: forecast.confidence_range.max_days }
+                : prev.runwayConfidence,
+            } : null);
+          }).catch((err) => console.warn("Fuel forecast fetch failed:", err));
         } else {
           setLiveFuel(null);
         }
