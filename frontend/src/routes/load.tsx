@@ -46,6 +46,8 @@ const KEYS = [
 function LoadPage() {
   const { station, telemetry, loadInfo } = useStation();
   const [simulatedDeficit, setSimulatedDeficit] = useState(false);
+  const [commanderApproved, setCommanderApproved] = useState(false);
+  const [commanderOverridden, setCommanderOverridden] = useState(false);
   const data = useMemo(() => loadBreakdownSeries(station), [station.id]);
 
   const zoneKw = (zone: string) => {
@@ -99,12 +101,16 @@ function LoadPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel
-          title="AI-Driven Load Shedding Engine"
-          description="Automatic safety-tiered shedding protects life-critical loads (heating & medical) when supply drops."
-          source="Load Shedding Engine (decide_load_shedding)"
+          title="Safety-Tiered Load Shedding Engine (Rule-Based Governance)"
+          description="Deterministic rule: If supply < demand, turn off Low Priority first. Warn Commander before touching Important items. Never touch Critical."
+          source="load_shedding.py (decide_load_shedding)"
           action={
             <button
-              onClick={() => setSimulatedDeficit((prev) => !prev)}
+              onClick={() => {
+                setSimulatedDeficit((prev) => !prev);
+                setCommanderApproved(false);
+                setCommanderOverridden(false);
+              }}
               className={cn(
                 "rounded-md border px-3 py-1 text-xs font-semibold transition-all cursor-pointer shadow-xs",
                 simulatedDeficit
@@ -116,51 +122,128 @@ function LoadPage() {
             </button>
           }
         >
+          {/* Rule Logic Box */}
+          <div className="mb-3 rounded-lg border border-border/80 bg-card/60 p-3 text-xs font-mono">
+            <span className="text-[10px] uppercase font-bold text-primary block mb-1">Safety Rule in Code (Deterministic If-Else):</span>
+            <code className="text-[11px] text-foreground leading-relaxed block bg-background/80 p-2.5 rounded border border-border/60">
+              if supply &lt; demand:<br />
+              &nbsp;&nbsp;turn_off("Low Priority") &nbsp;&nbsp;# Extra lighting, comfort items<br />
+              &nbsp;&nbsp;if deficit &gt; low_priority_capacity:<br />
+              &nbsp;&nbsp;&nbsp;&nbsp;warn_station_commander("Approve shedding Research Equipment or Override")
+            </code>
+          </div>
+
+          {/* 3 Categories Summary Grid */}
+          <div className="grid grid-cols-3 gap-2 text-[11px] mb-3 font-mono">
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-center">
+              <span className="font-bold text-emerald-400 block uppercase">Critical</span>
+              <span className="text-[9px] text-muted-foreground block mt-0.5">Heating & Medical</span>
+              <span className="text-[9px] text-emerald-300 font-semibold block mt-1">Never Auto-Shed</span>
+            </div>
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-center">
+              <span className="font-bold text-amber-400 block uppercase">Important</span>
+              <span className="text-[9px] text-muted-foreground block mt-0.5">Research Equipment</span>
+              <span className="text-[9px] text-amber-300 font-semibold block mt-1">Requires Approval</span>
+            </div>
+            <div className="rounded-md border border-sky-500/40 bg-sky-500/10 p-2 text-center">
+              <span className="font-bold text-sky-400 block uppercase">Low Priority</span>
+              <span className="text-[9px] text-muted-foreground block mt-0.5">Extra Light / Sauna</span>
+              <span className="text-[9px] text-sky-300 font-semibold block mt-1">Shed First</span>
+            </div>
+          </div>
+
           {simulatedDeficit ? (
             <div className="space-y-3 rounded-lg border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/20 p-4 text-xs">
               <div className="flex items-center justify-between border-b border-red-200 dark:border-red-800/60 pb-2">
                 <div className="flex items-center gap-2 font-bold text-red-700 dark:text-red-300">
                   <ShieldAlert className="size-4 text-red-500 animate-pulse" />
-                  <span>SIMULATED POWER DEFICIT ACTIVE (-40% Supply)</span>
+                  <span>POWER DEFICIT ACTIVE (-40% Supply)</span>
                 </div>
                 <span className="rounded bg-red-100 dark:bg-red-900/60 border border-red-300 px-2 py-0.5 text-[10px] font-mono font-bold text-red-800 dark:text-red-200">
-                  Shortfall: { (totalRealKw * 0.4).toFixed(1) } kW
+                  Shortfall: {(totalRealKw * 0.4).toFixed(1)} kW
                 </span>
               </div>
 
               <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
-                Supply dropped below demand. The <strong>Load Shedding Engine</strong> automatically shut off Tier 3 (non-essential) circuits first to protect Tier 1 (heating & medical).
+                Supply dropped below demand. <strong>Low Priority items (extra lighting, sauna)</strong> were shut off automatically. Deficit exceeds Low Priority load — <strong>Station Commander warning generated</strong>.
               </p>
 
               <div className="space-y-2 pt-1 font-mono text-[11px]">
+                {/* Critical Category */}
                 <div className="flex items-center justify-between rounded-md border border-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 p-2 text-emerald-900 dark:text-emerald-200">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>Tier 1: Space Heating, Medical Fridges & Life Support</span>
+                    <span>CRITICAL: Space Heating, Oxygen Plant & Medical Fridges</span>
                   </div>
                   <span className="font-bold uppercase tracking-wider text-[10px] bg-emerald-200 dark:bg-emerald-900 px-1.5 py-0.5 rounded">
-                    100% ONLINE (PROTECTED)
+                    PROTECTED (100% POWER)
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-100/80 dark:bg-amber-950/40 p-2 text-amber-900 dark:text-amber-200">
+                {/* Important Category */}
+                <div className={cn(
+                  "flex items-center justify-between rounded-md border p-2 transition-all",
+                  commanderApproved
+                    ? "border-amber-400 bg-amber-200/90 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100"
+                    : commanderOverridden
+                    ? "border-sky-400 bg-sky-100 dark:bg-sky-950/60 text-sky-950 dark:text-sky-100"
+                    : "border-amber-300 bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                )}>
                   <div className="flex items-center gap-2">
                     <Clock className="size-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Tier 2: Scientific Labs & Data Acquisition Arrays</span>
+                    <span>IMPORTANT: Research Equipment & Scientific Labs</span>
                   </div>
                   <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200 dark:bg-amber-900 px-1.5 py-0.5 rounded">
-                    REDUCED (50% POWER)
+                    {commanderApproved ? "COMMANDER APPROVED SHEDDING" : commanderOverridden ? "MANUAL OVERRIDE (GENSET ON)" : "COMMANDER WARNING: AWAITING APPROVAL"}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between rounded-md border border-red-300 bg-red-100/80 dark:bg-red-950/40 p-2 text-red-900 dark:text-red-200 opacity-75">
+                {/* Low Priority Category */}
+                <div className="flex items-center justify-between rounded-md border border-red-300 bg-red-100/80 dark:bg-red-950/40 p-2 text-red-900 dark:text-red-200 opacity-80">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="size-3.5 text-red-600 dark:text-red-400" />
-                    <span>Tier 3: Extra Lighting, Snow Melter & Sauna</span>
+                    <span>LOW PRIORITY: Extra Lighting, Snow Melter & Sauna</span>
                   </div>
                   <span className="font-bold uppercase tracking-wider text-[10px] bg-red-200 dark:bg-red-900 px-1.5 py-0.5 rounded">
                     AUTOMATICALLY SHUT OFF
                   </span>
+                </div>
+              </div>
+
+              {/* Station Commander Governance Controls */}
+              <div className="mt-3 border-t border-red-200 dark:border-red-800/60 pt-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-semibold uppercase">
+                  Station Commander Governance:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setCommanderApproved(true);
+                      setCommanderOverridden(false);
+                    }}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-bold transition-all shadow-xs cursor-pointer",
+                      commanderApproved
+                        ? "bg-amber-600 text-white border border-amber-700"
+                        : "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+                    )}
+                  >
+                    {commanderApproved ? "✓ Action Approved" : "Approve Action"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCommanderOverridden(true);
+                      setCommanderApproved(false);
+                    }}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-bold transition-all shadow-xs cursor-pointer",
+                      commanderOverridden
+                        ? "bg-sky-600 text-white border border-sky-700"
+                        : "bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 hover:bg-sky-500/30"
+                    )}
+                  >
+                    {commanderOverridden ? "⚡ Overridden (Genset Engaged)" : "Manual Override"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -181,16 +264,6 @@ function LoadPage() {
                 <span className="text-[10px] font-mono text-muted-foreground">Click "Simulate 40% Power Drop" to test</span>
               </div>
               <p className="mt-2">{shedding.message}</p>
-              {shedding.shedZones.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {shedding.shedZones.map((z: any, i: number) => (
-                    <li key={i} className="flex items-center justify-between border-t border-current/10 pt-1.5">
-                      <span className="font-medium">{z.zone}</span>
-                      <span className="rounded bg-current/10 px-1.5 py-0.5 text-[10px] font-bold uppercase">{z.tier_name}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">Loading load-shedding status...</p>

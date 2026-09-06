@@ -1,68 +1,122 @@
-# Priority tiers: lower tier number = more critical, shed last
-PRIORITY_TIERS = {
-    "Heating": 1,   # Critical - life support
-    "Dorms": 1,     # Critical - life support (basic living conditions)
-    "Labs": 2,      # Important - research equipment
-    "Kitchen": 3,   # Low priority - comfort/non-essential
+"""
+load_shedding.py — Simple, Deterministic Safety-Tiered Load Shedding Engine
+
+Rule-Based Control Logic for SIH 2026:
+  1. Critical (Tier 1): Space Heating, Medical Fridges, Life Support — NEVER auto-shed.
+  2. Important (Tier 2): Research Equipment & Scientific Labs — Requires Station Commander Approval before touching.
+  3. Low Priority (Tier 3): Extra Lighting, Snow Melter & Comfort Items — Shed automatically first when supply < demand.
+"""
+
+# Explicit 3 Categories as requested for SIH 2026 judging
+CATEGORIES = {
+    "Critical": {
+        "tier": 1,
+        "items": ["Space Heating", "Medical Fridges", "Life Support Oxygen"],
+        "description": "Life safety and climate control — NEVER auto-shed",
+        "auto_shed": False,
+    },
+    "Important": {
+        "tier": 2,
+        "items": ["Research Equipment", "Scientific Labs", "Telemetry Arrays"],
+        "description": "Scientific instruments — Requires Station Commander Approval before touching",
+        "auto_shed": False,  # Commander Approval Required
+    },
+    "Low Priority": {
+        "tier": 3,
+        "items": ["Extra Lighting", "Snow Melter", "Comfort Items / Sauna"],
+        "description": "Discretionary comfort loads — Shed automatically first when power runs low",
+        "auto_shed": True,
+    },
 }
 
-TIER_NAMES = {
-    1: "Critical",
-    2: "Important",
-    3: "Low"
-}
 
-
-def decide_load_shedding(demand_kw, available_supply_kw):
+def decide_load_shedding(demand_kw: float, available_supply_kw: float):
     """
-    Given total demand and what's actually available (renewables + battery + diesel),
-    decide which zones to shed (turn off) if supply can't meet demand.
-    Sheds lowest-priority (Tier 3) first, then Tier 2, protecting Tier 1 always.
+    Simple deterministic if-else load shedding rule:
+    - If supply >= demand: All nominal.
+    - If supply < demand:
+      Step 1: Turn off Low Priority (Tier 3) items first.
+      Step 2: If still not enough, WARN THE COMMANDER before touching Important (Tier 2) items.
+      Step 3: Always require manual 'Approve / Override' button for Station Commander for Tier 2/1.
     """
     if available_supply_kw >= demand_kw:
         return {
             "shedding_required": False,
-            "message": "Supply meets demand, no shedding needed",
-            "shed_zones": []
+            "shortfall_kw": 0.0,
+            "status": "nominal",
+            "message": "Power supply meets or exceeds demand. All systems nominal.",
+            "auto_shed_zones": [],
+            "pending_commander_approval_zones": [],
+            "requires_commander_approval": False,
+            "categories": CATEGORIES,
         }
 
-    shortfall = demand_kw - available_supply_kw
-    shed_zones = []
+    shortfall_kw = round(demand_kw - available_supply_kw, 2)
 
-    # Sort zones by tier, highest tier number (least critical) first
-    zones_by_priority = sorted(PRIORITY_TIERS.items(), key=lambda x: -x[1])
+    # Estimate capacity per tier based on realistic load splits
+    low_priority_capacity_kw = round(demand_kw * 0.25, 2)   # ~25% load (snow melter, extra lighting)
+    important_capacity_kw = round(demand_kw * 0.35, 2)      # ~35% load (research equipment, labs)
+    critical_capacity_kw = round(demand_kw * 0.40, 2)       # ~40% load (heating, medical fridges)
 
-    # Assume roughly equal load per zone for this simple version
-    estimated_load_per_zone = demand_kw / len(PRIORITY_TIERS)
+    # Step 1: Shut off Low Priority items first
+    low_priority_shed = min(shortfall_kw, low_priority_capacity_kw)
+    remaining_shortfall = round(shortfall_kw - low_priority_shed, 2)
 
-    remaining_shortfall = shortfall
-    for zone, tier in zones_by_priority:
-        if remaining_shortfall <= 0:
-            break
-        if tier == 1:
-            # Never auto-shed Tier 1 (Critical) - always requires human decision
-            continue
+    auto_shed_zones = [
+        {
+            "category": "Low Priority",
+            "tier": 3,
+            "kw_shed": low_priority_shed,
+            "items": CATEGORIES["Low Priority"]["items"],
+            "status": "AUTOMATICALLY SHUT OFF",
+        }
+    ]
 
-        shed_zones.append({"zone": zone, "tier": tier, "tier_name": TIER_NAMES[tier]})
-        remaining_shortfall -= estimated_load_per_zone
+    # Step 2 & 3: Check if shortfall exceeds Low Priority capacity
+    if remaining_shortfall <= 0:
+        return {
+            "shedding_required": True,
+            "shortfall_kw": shortfall_kw,
+            "remaining_shortfall_kw": 0.0,
+            "status": "low_priority_shed",
+            "message": f"Power deficit of {shortfall_kw} kW detected. Low Priority items (extra lighting, comfort items) shut off automatically. Critical & Important systems protected.",
+            "auto_shed_zones": auto_shed_zones,
+            "pending_commander_approval_zones": [],
+            "requires_commander_approval": False,
+            "categories": CATEGORIES,
+        }
 
-    requires_manual_approval = remaining_shortfall > 0  # if shedding Tier 2/3 wasn't enough
+    # If still not enough power, WARN COMMANDER before touching Important (Tier 2) items
+    pending_commander_approval_zones = [
+        {
+            "category": "Important",
+            "tier": 2,
+            "kw_required": remaining_shortfall,
+            "items": CATEGORIES["Important"]["items"],
+            "status": "AWAITING COMMANDER APPROVAL",
+            "warning": "Power deficit exceeds Low Priority capacity. Approve shedding Research Equipment or execute manual override.",
+        }
+    ]
 
     return {
         "shedding_required": True,
-        "shortfall_kw": round(shortfall, 2),
-        "shed_zones": shed_zones,
-        "requires_manual_approval_for_critical": requires_manual_approval,
-        "message": "Critical loads at risk - manual approval needed" if requires_manual_approval else "Shedding non-critical zones automatically"
+        "shortfall_kw": shortfall_kw,
+        "remaining_shortfall_kw": remaining_shortfall,
+        "status": "commander_warning",
+        "message": f"CRITICAL WARNING: Power deficit ({shortfall_kw} kW) exceeds Low Priority capacity. Low Priority items shut off automatically ({low_priority_shed} kW). Station Commander approval required before shedding Important items ({remaining_shortfall} kW).",
+        "auto_shed_zones": auto_shed_zones,
+        "pending_commander_approval_zones": pending_commander_approval_zones,
+        "requires_commander_approval": True,
+        "categories": CATEGORIES,
     }
 
 
 if __name__ == "__main__":
-    print("Scenario 1: Small shortfall")
-    print(decide_load_shedding(demand_kw=16, available_supply_kw=14))
+    print("Scenario 1: Supply meets demand (120 kW vs 120 kW)")
+    print(decide_load_shedding(120, 120))
 
-    print("\nScenario 2: Severe shortfall")
-    print(decide_load_shedding(demand_kw=16, available_supply_kw=5))
+    print("\nScenario 2: Small shortfall covered by Low Priority (120 kW demand, 100 kW supply)")
+    print(decide_load_shedding(120, 100))
 
-    print("\nScenario 3: No shortfall")
-    print(decide_load_shedding(demand_kw=16, available_supply_kw=20))
+    print("\nScenario 3: Severe shortfall requiring Commander Warning (120 kW demand, 60 kW supply)")
+    print(decide_load_shedding(120, 60))
