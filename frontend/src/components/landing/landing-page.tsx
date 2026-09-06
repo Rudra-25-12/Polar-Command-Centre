@@ -312,12 +312,12 @@ export function LandingPage() {
 
             <div className="px-4 space-y-1">
               <div className="text-[10px] text-slate-400 uppercase tracking-widest">Live Load</div>
-              <div className="text-xl font-bold text-sky-400">520 kW <span className="text-xs font-normal text-slate-400">TOTAL</span></div>
+              <div className="text-xl font-bold text-sky-400">{STATIONS.bharati.powerDrawKw + STATIONS.maitri.powerDrawKw + STATIONS.himadri.powerDrawKw} kW <span className="text-xs font-normal text-slate-400">TOTAL</span></div>
             </div>
 
             <div className="px-4 space-y-1">
               <div className="text-[10px] text-slate-400 uppercase tracking-widest">Personnel</div>
-              <div className="text-xl font-bold text-slate-100">61 <span className="text-xs font-normal text-slate-400">RESEARCHERS</span></div>
+              <div className="text-xl font-bold text-slate-100">{STATIONS.bharati.headcount + STATIONS.maitri.headcount + STATIONS.himadri.headcount} <span className="text-xs font-normal text-slate-400">RESEARCHERS</span></div>
             </div>
 
             <div className="px-4 space-y-1">
@@ -383,11 +383,11 @@ export function LandingPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800/80 pt-3 font-mono">
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Capacity:</span>
-                      <span className="font-semibold text-white">200 kW</span>
+                      <span className="font-semibold text-white">{STATIONS.bharati.generatorCapacityKw} kW</span>
                     </div>
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Reserve:</span>
-                      <span className="font-semibold text-sky-400">480k L</span>
+                      <span className="font-semibold text-sky-400">{Math.round(STATIONS.bharati.fuelRemainingL / 1000)}k L</span>
                     </div>
                   </div>
                 </div>
@@ -433,11 +433,11 @@ export function LandingPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800/80 pt-3 font-mono">
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Capacity:</span>
-                      <span className="font-semibold text-white">260 kW</span>
+                      <span className="font-semibold text-white">{STATIONS.maitri.generatorCapacityKw} kW</span>
                     </div>
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Reserve:</span>
-                      <span className="font-semibold text-amber-400">620k L</span>
+                      <span className="font-semibold text-amber-400">{Math.round(STATIONS.maitri.fuelRemainingL / 1000)}k L</span>
                     </div>
                   </div>
                 </div>
@@ -483,11 +483,11 @@ export function LandingPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800/80 pt-3 font-mono">
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Grid Import:</span>
-                      <span className="font-semibold text-white">21 kW</span>
+                      <span className="font-semibold text-white">{STATIONS.himadri.powerDrawKw} kW</span>
                     </div>
                     <div className="p-2 border border-slate-800/60 bg-slate-950/40">
                       <span className="text-slate-400 text-[10px] block">Reserve:</span>
-                      <span className="font-semibold text-cyan-300">26k L</span>
+                      <span className="font-semibold text-cyan-300">{(STATIONS.himadri.fuelRemainingL / 1000).toFixed(1)}k L</span>
                     </div>
                   </div>
                 </div>
