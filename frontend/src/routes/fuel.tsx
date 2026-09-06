@@ -217,7 +217,7 @@ function FuelPage() {
         description="Daily fuel burn compared to baseline and crisis scenario thresholds."
         source="Fuel Depot Telemetry (real calibrated data)"
       >
-        <div className="h-[300px]">
+        <div className="h-[300px] w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
               <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />

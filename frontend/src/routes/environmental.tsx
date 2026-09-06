@@ -98,7 +98,7 @@ function EnvironmentalPage() {
         }
         source="Real backend data: astral polar-night calculation + NPDC-calibrated wind"
       >
-        <div className={`h-[380px] rounded-md ${isNight ? "bg-primary/5" : "bg-warning/5"} p-2 border border-border/50`}>
+        <div className={`h-[380px] w-full min-w-0 rounded-md ${isNight ? "bg-primary/5" : "bg-warning/5"} p-2 border border-border/50`}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={envHistory} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
               <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />

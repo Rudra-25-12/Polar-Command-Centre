@@ -200,7 +200,7 @@ function SustainabilityPage() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Annual CO₂: Current Baseline vs Further Renewable Expansion" source="AI Savings Model + Modelled projection">
-          <div className="h-[300px]">
+          <div className="h-[300px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={compare} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />
@@ -218,7 +218,7 @@ function SustainabilityPage() {
         </Panel>
 
         <Panel title="Landed Fuel Cost & Volume Trend (2021–2026)" description="Historical landed cost ($k) and delivered volume (kL) per station." source="Est. from historical delivery data">
-          <div className="h-[300px]">
+          <div className="h-[300px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={costs} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />

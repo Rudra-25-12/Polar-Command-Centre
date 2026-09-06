@@ -136,7 +136,7 @@ function ForecastPage() {
           </div>
         }
       >
-        <div className="h-[400px]">
+        <div className="h-[400px] w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
               <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />
