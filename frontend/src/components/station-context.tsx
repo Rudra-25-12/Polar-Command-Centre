@@ -190,6 +190,13 @@ export function StationProvider({ children }: { children: ReactNode }) {
             capacityKwh: batteryRes.capacity_kwh ?? (stationId === "bharati" ? 20.0 : 25.0),
             percent: batteryRes.percent ?? Number(((batteryRes.charge_kwh / (batteryRes.capacity_kwh ?? 20.0)) * 100).toFixed(1)),
           });
+        } else if (dispatch && typeof dispatch.battery_charge_kwh === "number") {
+          const cap = stationId === "bharati" ? 20.0 : 25.0;
+          setLiveBattery({
+            chargeKwh: dispatch.battery_charge_kwh,
+            capacityKwh: cap,
+            percent: Number(((dispatch.battery_charge_kwh / cap) * 100).toFixed(1)),
+          });
         } else {
           setLiveBattery(null);
         }
