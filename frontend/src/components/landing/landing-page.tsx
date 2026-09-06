@@ -95,8 +95,9 @@ function StationInspectionModal({ stationId, onClose, onEnterDashboard }: Statio
               <p className="mt-1 font-mono text-base font-bold text-white">{s.generatorCapacityKw} kW</p>
             </div>
             <div className="border border-slate-800 bg-slate-900/60 p-3.5 rounded-md">
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Fuel Reserve</span>
-              <p className="mt-1 font-mono text-base font-bold text-sky-400">{s.fuelCapacityL.toLocaleString()} L</p>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Current Reserve</span>
+              <p className="mt-1 font-mono text-base font-bold text-sky-400">{s.fuelRemainingL.toLocaleString()} L</p>
+              <span className="text-[9px] font-mono text-slate-500 block mt-0.5">Farm Cap: {s.fuelCapacityL.toLocaleString()} L</span>
             </div>
             <div className="border border-slate-800 bg-slate-900/60 p-3.5 rounded-md">
               <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Daily Burn</span>
@@ -105,6 +106,7 @@ function StationInspectionModal({ stationId, onClose, onEnterDashboard }: Statio
             <div className="border border-slate-800 bg-slate-900/60 p-3.5 rounded-md">
               <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Max Personnel</span>
               <p className="mt-1 font-mono text-base font-bold text-emerald-400">{s.maxCapacity} Crew</p>
+              <span className="text-[9px] font-mono text-slate-500 block mt-0.5">{s.headcount} active on station</span>
             </div>
           </div>
 
