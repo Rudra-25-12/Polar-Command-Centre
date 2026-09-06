@@ -1,9 +1,12 @@
+import os
 import sqlite3
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "station_data.db")
+
 def get_connection():
-    return sqlite3.connect("station_data.db")
+    return sqlite3.connect(DB_PATH)
 
 def detect_anomalies(station_id="bharati"):
     conn = get_connection()

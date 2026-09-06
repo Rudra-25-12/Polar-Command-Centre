@@ -4,7 +4,7 @@
  * to the FastAPI backend built for SIH26061.
  */
 
-const API_BASE = "https://polar-station-energy-system.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://polar-station-energy-system.onrender.com";
 
 export async function fetchConsumption(station: string) {
   const res = await fetch(`${API_BASE}/consumption?station=${station}`);
@@ -79,4 +79,19 @@ export async function fetchSustainabilityReport(station: string) {
 export async function fetchCurrentConditions(station: string) {
   const res = await fetch(`${API_BASE}/current-conditions?station=${station}`);
   return res.json();
+}
+
+export async function fetchCopilotResponse(station: string, query: string) {
+  try {
+    const res = await fetch(`${API_BASE}/copilot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ station, query }),
+    });
+    if (!res.ok) throw new Error("Backend request failed");
+    return await res.json();
+  } catch (err) {
+    console.warn("Copilot API fallback:", err);
+    return null;
+  }
 }

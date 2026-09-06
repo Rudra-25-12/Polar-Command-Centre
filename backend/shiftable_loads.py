@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 SHIFTABLE_ZONES = {
@@ -7,8 +8,10 @@ SHIFTABLE_ZONES = {
     "Dorms": {"shiftable": False, "reason": "Life-critical, must run continuously"}
 }
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "station_data.db")
+
 def get_connection():
-    conn = sqlite3.connect("station_data.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 

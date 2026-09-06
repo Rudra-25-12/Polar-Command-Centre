@@ -1,10 +1,13 @@
+import os
 import sqlite3
 import random
 from datetime import datetime, timedelta
 from station_config import get_station
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "station_data.db")
+
 def get_connection():
-    return sqlite3.connect("station_data.db")
+    return sqlite3.connect(DB_PATH)
 
 def generate_equipment_data(station_id="bharati"):
     station = get_station(station_id)

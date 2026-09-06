@@ -1,11 +1,14 @@
+import os
 import sqlite3
 import random
 from datetime import datetime, timedelta, timezone
 from astral import LocationInfo, sun
 from station_config import get_station, DIESEL_TO_POWER_L_PER_KWH
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "station_data.db")
+
 def get_connection():
-    return sqlite3.connect("station_data.db")
+    return sqlite3.connect(DB_PATH)
 
 
 def get_daylight_window(station_id, check_date):
