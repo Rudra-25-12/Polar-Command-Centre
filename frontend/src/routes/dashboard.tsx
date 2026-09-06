@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Moon, Sun, Zap, Radio, Fuel, Gauge, Clock, Thermometer, Wind } from "lucide-react";
+import { Moon, Sun, Zap, Radio, Fuel, Gauge, Clock, Thermometer, Wind, BatteryCharging, Leaf } from "lucide-react";
 import { useStation } from "@/components/station-context";
 import {
   Panel,
@@ -47,7 +47,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardOverview() {
-  const { station, telemetry, liveFuel } = useStation();
+  const { station, telemetry, liveFuel, liveBattery, renewablePct } = useStation();
   const series = useMemo(() => powerSeries(station), [station.id]);
   const days = liveFuel?.runwayDays ?? runwayDays(station);
   const sev = severityForRunway(days);
@@ -86,7 +86,7 @@ function DashboardOverview() {
       )}
 
       {/* Stat Cards Grid - Visually Tailored per Station Type */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label={isHimadri ? "Village Grid Import" : "Current power draw"}
           value={telemetry.powerDrawKw.toFixed(1)}
@@ -114,12 +114,38 @@ function DashboardOverview() {
         />
 
         <StatCard
+          label="% Renewable Today"
+          value={renewablePct.toFixed(1)}
+          unit="%"
+          icon={Leaf}
+          hint={
+            station.polarPhase === "polar night"
+              ? "Polar night phase (0% solar, wind active)"
+              : "Live clean energy share of demand"
+          }
+          source="Renewable Dispatch Engine"
+        />
+
+        <StatCard
           label={isHimadri ? "Backup Tank Level" : "Fuel tank level"}
-          value={(liveFuel?.percent ?? fuelPercent(station)).toFixed(1)}
+          value={Math.min(100, liveFuel?.percent ?? fuelPercent(station)).toFixed(1)}
           unit="%"
           icon={Fuel}
-          hint={liveFuel ? `${Math.round(liveFuel.remainingL).toLocaleString()} L of ${liveFuel.capacityL.toLocaleString()} L` : `${station.fuelRemainingL.toLocaleString()} L of ${station.fuelCapacityL.toLocaleString()} L`}
+          hint={liveFuel ? `${Math.round(Math.min(liveFuel.capacityL, liveFuel.remainingL)).toLocaleString()} L of ${liveFuel.capacityL.toLocaleString()} L` : `${station.fuelRemainingL.toLocaleString()} L of ${station.fuelCapacityL.toLocaleString()} L`}
           source="Depot Gauge"
+        />
+
+        <StatCard
+          label="Battery Charge"
+          value={(liveBattery?.percent ?? 50.0).toFixed(1)}
+          unit="%"
+          icon={BatteryCharging}
+          hint={
+            liveBattery
+              ? `${liveBattery.chargeKwh.toFixed(1)} kWh of ${liveBattery.capacityKwh} kWh`
+              : "10.0 kWh of 20.0 kWh"
+          }
+          source="Modelled projection"
         />
 
         <StatCard

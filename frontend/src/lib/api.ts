@@ -31,6 +31,11 @@ export async function fetchRenewables(station: string) {
   return res.json();
 }
 
+export async function fetchBattery(station: string) {
+  const res = await fetch(`${API_BASE}/battery?station=${station}`);
+  return res.json();
+}
+
 export async function fetchDispatch(station: string) {
   const res = await fetch(`${API_BASE}/dispatch?station=${station}`);
   return res.json();

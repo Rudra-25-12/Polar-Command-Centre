@@ -35,7 +35,7 @@ export const Route = createFileRoute("/sustainability")({
 });
 
 function SustainabilityPage() {
-  const { station, savings } = useStation();
+  const { station, savings, renewablePct } = useStation();
   const costs = fuelCostSeries(station);
 
   const annualDieselL = savings ? (savings.actualDieselL / savings.periodDays) * 365 : station.dailyConsumptionL * 365;
@@ -122,7 +122,18 @@ function SustainabilityPage() {
         </div>
       </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="% Renewable Energy Today"
+          value={`${renewablePct.toFixed(1)}`}
+          unit="%"
+          hint={
+            station.polarPhase === "polar night"
+              ? "Polar night phase (0% solar, wind active)"
+              : "Current renewable penetration"
+          }
+          source="Renewable Dispatch Engine"
+        />
         <StatCard label="Annual CO₂ Emissions" value={annualCo2Tonnes.toLocaleString()} unit="tonnes" source="AI Savings Model (backend)" />
         <StatCard
           label="Already Saved vs Baseline"

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useCallback, useState, type ReactNode } from "react";
 import { STATIONS, type StationConfig, type StationId } from "@/lib/station-data";
 import { fetchDispatch, fetchCurrentConditions } from "@/lib/api";
-import { fetchFuel, fetchFuelForecast, fetchConsumption, fetchShiftRecommendations, fetchLoadShedding, fetchRenewables, fetchEquipmentHealth, fetchSavings } from "@/lib/api";
+import { fetchFuel, fetchFuelForecast, fetchConsumption, fetchShiftRecommendations, fetchLoadShedding, fetchRenewables, fetchEquipmentHealth, fetchSavings, fetchBattery } from "@/lib/api";
 
 interface LiveTelemetry {
   powerDrawKw: number;
@@ -11,6 +11,12 @@ interface LiveTelemetry {
   windSpeedMs: number;
   gridFrequencyHz: number;
   anomalyActive: boolean;
+}
+
+interface LiveBattery {
+  chargeKwh: number;
+  capacityKwh: number;
+  percent: number;
 }
 
 interface LiveFuel {
@@ -57,6 +63,8 @@ interface StationContextValue {
   setStationId: (id: StationId) => void;
   telemetry: LiveTelemetry;
   liveFuel: LiveFuel | null;
+  liveBattery: LiveBattery | null;
+  renewablePct: number;
   loadInfo: LoadInfo | null;
   envHistory: EnvHistoryPoint[];
   equipmentHealth: EquipmentAlert[];
@@ -107,6 +115,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
   }, [rawStation, season, stationId]);
 
   const [liveFuel, setLiveFuel] = useState<LiveFuel | null>(null);
+  const [liveBattery, setLiveBattery] = useState<LiveBattery | null>(null);
+  const [renewablePct, setRenewablePct] = useState<number>(0);
   const [loadInfo, setLoadInfo] = useState<LoadInfo | null>(null);
   const [envHistory, setEnvHistory] = useState<EnvHistoryPoint[]>([]);
   const [equipmentHealth, setEquipmentHealth] = useState<EquipmentAlert[]>([]);
@@ -134,15 +144,16 @@ export function StationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Poll the REAL backend for live telemetry instead of generating random jitter.
-  // Fast endpoints only (dispatch, current-conditions) - never the slow Prophet ones here.
+  // Fast endpoints only (dispatch, current-conditions, battery) - never the slow Prophet ones here.
   useEffect(() => {
     let cancelled = false;
 
     async function refreshFromBackend() {
       try {
-        const [dispatch, conditions] = await Promise.all([
+        const [dispatch, conditions, batteryRes] = await Promise.all([
           fetchDispatch(stationId),
           fetchCurrentConditions(stationId),
+          fetchBattery(stationId).catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -162,6 +173,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
           gridFrequencyHz: 50.0,
           anomalyActive,
         });
+
+        if (typeof dispatch?.renewable_percentage === "number") {
+          setRenewablePct(dispatch.renewable_percentage);
+        }
+
+        if (batteryRes && typeof batteryRes.charge_kwh === "number") {
+          setLiveBattery({
+            chargeKwh: batteryRes.charge_kwh,
+            capacityKwh: batteryRes.capacity_kwh ?? (stationId === "bharati" ? 20.0 : 25.0),
+            percent: batteryRes.percent ?? Number(((batteryRes.charge_kwh / (batteryRes.capacity_kwh ?? 20.0)) * 100).toFixed(1)),
+          });
+        }
       } catch (err) {
         console.warn("Backend fetch failed, keeping last known telemetry:", err);
       }
@@ -365,6 +388,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
       setStationId,
       telemetry,
       liveFuel,
+      liveBattery,
+      renewablePct,
       loadInfo,
       envHistory,
       equipmentHealth,
@@ -376,7 +401,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       season,
       toggleSeason,
     }),
-    [stationId, baseStation, telemetry, liveFuel, loadInfo, envHistory, equipmentHealth, savings, anomalyActive, isSatMode, season],
+    [stationId, baseStation, telemetry, liveFuel, liveBattery, renewablePct, loadInfo, envHistory, equipmentHealth, savings, anomalyActive, isSatMode, season],
   );
 
   return <StationContext.Provider value={value}>{children}</StationContext.Provider>;

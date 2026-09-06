@@ -10,11 +10,11 @@ export function SourceTag({ source, className }: { source: SourceLabel | string;
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground",
+            "inline-flex items-center gap-1 shrink-0 whitespace-nowrap rounded-full border border-border/70 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground",
             className,
           )}
         >
-          <Info className="size-2.5" />
+          <Info className="size-2.5 shrink-0" />
           {source}
         </span>
       </TooltipTrigger>
@@ -35,7 +35,7 @@ export function SeverityBadge({ severity, label }: { severity: Severity; label?:
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider",
         severityStyles[severity],
       )}
     >
@@ -116,9 +116,9 @@ export function StatCard({
   return (
     <div className={cn("panel relative overflow-hidden p-4 transition-all hover:border-border/90", accentBorder)}>
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          {Icon && <Icon className="size-3.5 text-primary" />}
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {Icon && <Icon className="size-3.5 shrink-0 text-primary" />}
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground truncate">
             {label}
           </p>
         </div>

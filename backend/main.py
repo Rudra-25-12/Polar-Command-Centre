@@ -75,6 +75,30 @@ def get_renewables(station: str = "bharati"):
     conn.close()
     return {"station": station, "renewables": [dict(row) for row in rows]}
 
+@app.get("/battery")
+def get_battery(station: str = "bharati"):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT timestamp, charge_kwh FROM battery WHERE station_id = ? ORDER BY timestamp DESC LIMIT 1",
+        (station,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    max_capacity_kwh = 20.0 if station.lower() == "bharati" else 25.0
+    charge_kwh = row["charge_kwh"] if row else (max_capacity_kwh / 2.0)
+    percent = round((charge_kwh / max_capacity_kwh) * 100, 1)
+
+    return {
+        "station": station,
+        "charge_kwh": round(charge_kwh, 2),
+        "capacity_kwh": max_capacity_kwh,
+        "percent": percent,
+        "timestamp": row["timestamp"] if row else None
+    }
+
+
 @app.get("/load-forecast")
 def get_load_forecast(station: str = "bharati", zone: str = "Heating"):
     conn = sqlite3.connect(DB_PATH)
