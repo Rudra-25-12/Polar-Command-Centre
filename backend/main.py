@@ -344,17 +344,30 @@ def suggest_expansion(station: str = "bharati"):
     current_pct = dispatch.get("renewable_percentage", 0)
 
     if current_pct >= 90:
-        return {"station": station, "message": "Renewable coverage already high; no major expansion needed.", "current_renewable_pct": current_pct}
+        return {
+            "station": station,
+            "message": "Renewable coverage is already high (≥90%); no major expansion required.",
+            "current_renewable_pct": current_pct,
+            "target_renewable_pct": current_pct,
+            "suggested_additional_capacity_kw": 0.0,
+            "diesel_reduction_pct": 0.0,
+            "estimated_annual_diesel_saved_liters": 0.0
+        }
 
     target_pct = 80
     additional_kw_needed = round((target_pct/100 * demand_kw) - (current_pct/100 * demand_kw), 1)
+    additional_kw = max(0, additional_kw_needed)
+    diesel_reduction_pct = round(target_pct - current_pct, 1)
+    annual_diesel_saved_l = round(additional_kw * 24 * 365 * 0.238, 0)
 
     return {
         "station": station,
         "current_renewable_pct": current_pct,
         "target_renewable_pct": target_pct,
-        "suggested_additional_capacity_kw": max(0, additional_kw_needed),
-        "message": f"Adding approximately {max(0, additional_kw_needed)} kW of solar/wind capacity would raise renewable coverage toward {target_pct}%."
+        "suggested_additional_capacity_kw": additional_kw,
+        "diesel_reduction_pct": diesel_reduction_pct,
+        "estimated_annual_diesel_saved_liters": annual_diesel_saved_l,
+        "message": f"Adding {additional_kw} kW of solar/wind capacity would reduce diesel dependency by {diesel_reduction_pct}%, based on current station usage patterns."
     }
 
 @app.get("/sustainability-report")
