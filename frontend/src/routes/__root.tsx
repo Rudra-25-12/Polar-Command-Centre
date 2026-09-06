@@ -113,24 +113,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.png", type: "image/png" },
     ],
   }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
 
 function RootShell({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en" className="bg-[#060b14] text-slate-100">
-      <head>
-        <HeadContent />
-      </head>
-      <body className="bg-[#060b14] text-slate-100 font-sans antialiased">
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
+  return <>{children}</>;
 }
 
 function RootComponent() {

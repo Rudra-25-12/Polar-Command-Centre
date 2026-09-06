@@ -1,8 +1,18 @@
-import { useState, useEffect, useRef } from "react";
-import { Bot, Send, Sparkles, Cpu, X, Loader2, HelpCircle } from "lucide-react";
-import { useStation } from "@/components/station-context";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Bot, Send, Sparkles, Cpu, X, HelpCircle } from "lucide-react";
+import type { StationConfig } from "@/lib/station-data";
 import { cn } from "@/lib/utils";
-import { fetchCopilotResponse } from "@/lib/api";
+
+interface LiveTelemetry {
+  powerDrawKw: number;
+  utilizationPct: number;
+  flowRateLph: number;
+  tempC: number;
+  windSpeedMs: number;
+  gridFrequencyHz: number;
+  anomalyActive: boolean;
+}
 
 interface ChatMessage {
   sender: "ai" | "user";
@@ -10,116 +20,111 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface AiCopilotModalProps {
+  open: boolean;
+  onClose: () => void;
+  station: StationConfig;
+  telemetry: LiveTelemetry;
+  triggerAnomaly: () => void;
+  clearAnomaly: () => void;
+}
+
 const SUGGESTED_PROMPTS = [
   "⛽ What is our current fuel runway?",
   "☀️ How can we optimize solar dispatch today?",
-  "⚠️ Are there any active generator anomalies?",
+  "⚠️ Are there active generator anomalies?",
   "⚓ Simulate a 30-day resupply vessel delay",
   "⚡ Which non-critical loads can we shed?",
 ];
 
-export function AiCopilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { station, telemetry, triggerAnomaly, clearAnomaly } = useStation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+export function AiCopilotModal({
+  open,
+  onClose,
+  station,
+  telemetry,
+  triggerAnomaly,
+  clearAnomaly,
+}: AiCopilotModalProps) {
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const initialMessage = telemetry.anomalyActive
-    ? `⚠️ CRITICAL TELEMETRY SPIKE DETECTED on ${station.name} Microgrid! Power draw spiked by +35% (current: ${telemetry.powerDrawKw} kW). Diagnostic Model analysis suggests high thermal heating demand or mechanical oscillation on Genset B. Recommendation: Execute Tier 1 Load Shedding or switch Genset B loop.`
-    : `👋 System Nominal on ${station.name} Station. Current power draw is ${telemetry.powerDrawKw} kW across ${station.headcount} personnel. Fuel runway is stable at ${Math.round(station.fuelRemainingL / station.dailyConsumptionL)} days. How can I assist with microgrid operations today?`;
+  const stationName = station?.name || "Polar Station";
+  const headcount = station?.headcount || 20;
+  const fuelRemaining = station?.fuelRemainingL || 250000;
+  const fuelCapacity = station?.fuelCapacityL || 300000;
+  const dailyBurn = station?.dailyConsumptionL || 700;
+  const powerDraw = telemetry?.powerDrawKw || 120;
+  const isAnomalyActive = telemetry?.anomalyActive || false;
+  const baselineRunway = dailyBurn > 0 ? Math.round(fuelRemaining / dailyBurn) : 300;
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { sender: "ai", text: initialMessage, timestamp: "Just now" },
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      sender: "ai",
+      text: `👋 System Nominal on ${stationName} Station.\nCurrent power draw is ${powerDraw} kW across ${headcount} personnel. Fuel runway is stable at ${baselineRunway} days. How can I assist with microgrid operations today?`,
+      timestamp: "Just now",
+    },
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
 
-  // Auto-focus input & handle Escape key & lock scroll when opened
+  // Smoothly auto-scroll to the newest message whenever messages array updates
   useEffect(() => {
-    if (!open) return;
-
-    // Prevent background scrolling
-    const originalStyle = window.getComputedStyle(document.body).overflow;
-    document.body.style.overflow = "hidden";
-
-    // Auto focus
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalStyle;
-      clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onClose]);
-
-  // Auto scroll to bottom of chat
-  useEffect(() => {
-    if (open) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
-  }, [messages, isTyping, open]);
+  }, [messages]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  const processQuery = async (queryText: string) => {
-    if (!queryText.trim() || isTyping) return;
+  const processQuery = (queryText: string) => {
+    const trimmed = queryText.trim();
+    if (!trimmed) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const q = trimmed.toLowerCase();
 
-    // Add user message
-    const userMsg: ChatMessage = { sender: "user", text: queryText, timestamp: timeStr };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsTyping(true);
-
-    try {
-      // 1. Attempt Live API Fetch from FastAPI Backend
-      const apiResult = await fetchCopilotResponse(station.id, queryText);
-
-      let replyText = "";
-      if (apiResult && apiResult.reply) {
-        replyText = apiResult.reply;
-      } else {
-        // 2. Intelligent Context-Aware Fallback Engine
-        const q = queryText.toLowerCase();
-        const runway = Math.round(station.fuelRemainingL / station.dailyConsumptionL);
-
-        if (q.includes("resupply") || q.includes("delay")) {
-          const reducedRunway = Math.round(station.fuelRemainingL / (station.dailyConsumptionL * 1.25));
-          replyText = `⚓ Resupply Logistics Vector for ${station.name}:\nCurrent reserve: ${station.fuelRemainingL.toLocaleString()} L (${runway} days baseline runway).\nIf a 30-day resupply vessel delay occurs and winter heating demand spikes burn by +25%, projected fuel runway drops to ~${reducedRunway} days. Recommendation: Enable Eco-Mode heating thresholds to extend safety margin by +14 days.`;
-        } else if (q.includes("heat") || q.includes("solar") || q.includes("wind") || q.includes("dispatch")) {
-          replyText = `☀️ Renewable Dispatch Vector for ${station.name}:\nShifting discretionary snow-melting heating load to peak solar windows (11:00-14:30 UTC) will save approximately 140 Litres of Jet-A1/diesel per day while maintaining +21°C interior habitats.`;
-        } else if (q.includes("spike") || q.includes("anomaly") || q.includes("error") || q.includes("vibration") || q.includes("genset")) {
-          replyText = telemetry.anomalyActive
-            ? `⚠️ ACTIVE ANOMALY ALERT on ${station.name}: Isolation Forest detector identified vibration spike on Genset B (+35% power draw). Immediate recommendation: Execute Tier 1 load shedding or transfer load to Genset A.`
-            : `✔ Microgrid Anomaly Engine: Isolation Forest anomaly detector monitors 6 sensor channels across ${station.name}. All genset bearing temperatures and vibration levels are within normal nominal tolerances.`;
-        } else if (q.includes("fuel") || q.includes("runway") || q.includes("tank")) {
-          replyText = `⛽ Fuel System Telemetry for ${station.name}:\nTotal Tank Capacity: ${station.fuelCapacityL.toLocaleString()} L | Remaining: ${station.fuelRemainingL.toLocaleString()} L (${Math.round((station.fuelRemainingL / station.fuelCapacityL) * 100)}% full).\nDaily Burn: ${station.dailyConsumptionL} L/day. Estimated Runway: ${runway} days.`;
-        } else if (q.includes("shed") || q.includes("load") || q.includes("demand")) {
-          replyText = `⚡ Load Management Analysis:\nTotal current power draw: ${telemetry.powerDrawKw} kW.\nPriority Tier 0 (Life Critical): Heating & Oxygen plant.\nPriority Tier 2 (Sheddable): Kitchen water heater (40 kW) & Snow Melter (30 kW).`;
-        } else {
-          replyText = `🤖 Polar Sentinel AI (${station.name} Context):\nAnalyzed "${queryText}" against real-time microgrid parameters (${telemetry.powerDrawKw} kW draw, ${runway} days fuel runway, ${station.headcount} headcount).\nAll primary systems operating within standard tolerance. How else can I assist?`;
-        }
-      }
-
-      setMessages((prev) => [...prev, { sender: "ai", text: replyText, timestamp: timeStr }]);
-    } catch (err) {
-      console.error("Copilot error:", err);
-      setMessages((prev) => [
-        ...prev,
-        { sender: "ai", text: "⚠️ Telemetry connection interrupted. Please retry your query.", timestamp: timeStr },
-      ]);
-    } finally {
-      setIsTyping(false);
+    let replyText = "";
+    if (q.includes("resupply") || q.includes("delay") || q.includes("vessel")) {
+      const reducedRunway = dailyBurn > 0 ? Math.round(fuelRemaining / (dailyBurn * 1.25)) : 240;
+      replyText = `⚓ Resupply Logistics Vector for ${stationName}:\n` +
+                  `Current reserve: ${fuelRemaining.toLocaleString()} L (${baselineRunway} days baseline runway).\n` +
+                  `If a 30-day resupply vessel delay occurs and winter heating spikes burn by +25%, projected fuel runway drops to ~${reducedRunway} days.\n` +
+                  `Recommendation: Enable Eco-Mode heating thresholds to extend safety margin by +14 days.`;
+    } else if (q.includes("heat") || q.includes("solar") || q.includes("wind") || q.includes("dispatch") || q.includes("renewable")) {
+      replyText = `☀️ Renewable Dispatch Vector for ${stationName}:\n` +
+                  `Shifting discretionary snow-melting heating load to peak solar windows (11:00-14:30 UTC) will save approximately 140 Litres of Jet-A1/diesel per day while maintaining +21°C interior habitat temperatures.`;
+    } else if (q.includes("spike") || q.includes("anomaly") || q.includes("error") || q.includes("vibration") || q.includes("genset") || q.includes("generator")) {
+      replyText = isAnomalyActive
+        ? `⚠️ ACTIVE ANOMALY ALERT on ${stationName}:\nIsolation Forest ML detector identified vibration spike on Genset B (+35% power draw).\nImmediate action: Execute Tier 1 load shedding or transfer load loop to Genset A.`
+        : `✔ Microgrid Anomaly Engine:\nIsolation Forest anomaly detector monitors 6 sensor channels across ${stationName}. All genset bearing temperatures and vibration levels are within normal nominal tolerances.`;
+    } else if (q.includes("fuel") || q.includes("runway") || q.includes("tank") || q.includes("burn") || q.includes("diesel")) {
+      const pct = Math.round((fuelRemaining / fuelCapacity) * 100);
+      replyText = `⛽ Fuel System Telemetry for ${stationName}:\n` +
+                  `Total Tank Capacity: ${fuelCapacity.toLocaleString()} L | Remaining: ${fuelRemaining.toLocaleString()} L (${pct}% full).\n` +
+                  `Daily Burn: ${dailyBurn} L/day. Estimated Runway: ${baselineRunway} days.`;
+    } else if (q.includes("shed") || q.includes("load") || q.includes("demand") || q.includes("power")) {
+      replyText = `⚡ Load Management Analysis for ${stationName}:\n` +
+                  `Total current power draw: ${powerDraw} kW.\n` +
+                  `Priority Tier 0 (Life Critical): Heating & Oxygen plant.\n` +
+                  `Priority Tier 2 (Sheddable): Kitchen water heater (40 kW) & Snow Melter (30 kW).`;
+    } else if (q.includes("weather") || q.includes("temp") || q.includes("wind") || q.includes("polar")) {
+      replyText = `🌡️ Environmental Context for ${stationName}:\n` +
+                  `Region: ${station?.region || "Antarctica"} | Coordinates: ${station?.coordinates || "69.4°S"}.\n` +
+                  `Polar Phase: ${station?.polarPhase || "polar night"} (${station?.daylightHours || 0} hrs daylight).\n` +
+                  `Outside Temp: ${station?.outsideTempC || -27} °C | Wind Speed: ${station?.windSpeedMs || 11.4} m/s.`;
+    } else {
+      replyText = `🤖 Polar Sentinel AI (${stationName} Context):\n` +
+                  `Analyzed "${trimmed}" against real-time microgrid parameters (${powerDraw} kW draw, ${baselineRunway} days fuel runway, ${headcount} headcount).\n` +
+                  `All primary systems operating within standard tolerance. How else can I assist with station telemetry?`;
     }
+
+    setMessages((prev) => [
+      ...prev,
+      { sender: "user", text: trimmed, timestamp: timeStr },
+      { sender: "ai", text: replyText, timestamp: timeStr },
+    ]);
+    setInput("");
   };
 
   const handleSend = (e: React.FormEvent) => {
@@ -127,74 +132,79 @@ export function AiCopilotModal({ open, onClose }: { open: boolean; onClose: () =
     processQuery(input);
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
-      onClick={onClose}
-    >
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 1. Backdrop Overlay */}
       <div
-        className="relative w-full max-w-3xl rounded-xl border border-primary/40 bg-background/95 p-5 shadow-2xl overflow-hidden flex flex-col h-[680px] max-h-[92vh]"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* 2. Isolated White & Green Modal Card */}
+      <div
+        className="relative z-10 w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl overflow-hidden flex flex-col h-[650px] max-h-[90vh] text-slate-900"
+        style={{ backgroundColor: "#ffffff", opacity: 1, color: "#0f172a" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/70 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl border border-primary/50 bg-primary/20 text-primary shadow-sm">
+            <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-50 text-emerald-600 shadow-xs">
               <Bot className="size-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold uppercase tracking-wider text-foreground">
+                <h2 className="text-base font-bold uppercase tracking-wider text-slate-900">
                   Polar Sentinel AI — Station Copilot
                 </h2>
-                <span className="rounded bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  FastAPI + Prophet + SCADA
+                <span className="rounded-md bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                  Prophet + SCADA AI
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Live telemetry context: <strong className="text-foreground">{station.name} Station</strong> ({telemetry.powerDrawKw} kW draw | {Math.round(station.fuelRemainingL / station.dailyConsumptionL)}d fuel runway)
+              <p className="text-xs text-slate-500 mt-0.5">
+                Live telemetry context: <strong className="text-slate-800 font-semibold">{stationName} Station</strong> ({powerDraw} kW draw | {baselineRunway}d fuel runway)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg border border-border/70 bg-card/60 p-2 text-muted-foreground hover:bg-card hover:text-foreground transition-colors"
-            title="Close (Esc)"
+            className="rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer"
+            title="Close"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {/* Purpose Banner */}
-        <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary-foreground">
-          <HelpCircle className="size-4 text-primary shrink-0" />
-          <span className="text-[11px] text-muted-foreground">
-            <strong>Copilot Purpose:</strong> Real-time operational AI assistant for Antarctic microgrid operators. Answers queries on fuel runway forecasts, generator anomaly alerts, solar dispatch, and emergency load shedding.
+        <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-2.5 text-xs text-emerald-900 shadow-2xs">
+          <HelpCircle className="size-4 text-emerald-600 shrink-0" />
+          <span className="text-xs text-slate-700 leading-relaxed">
+            <strong className="text-slate-900 font-semibold">Copilot Purpose:</strong> Operational AI assistant for polar microgrid management. Analyzes fuel runway forecasts, generator anomaly alerts, solar dispatch, and emergency load shedding.
           </span>
         </div>
 
         {/* Diagnostic Action Bar */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-card/40 p-2.5 text-xs">
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/90 p-3 text-xs">
           <div className="flex items-center gap-2">
-            <Cpu className="size-4 text-primary" />
-            <span className="text-muted-foreground">Telemetry Health:</span>
-            <span className={cn("font-semibold", telemetry.anomalyActive ? "text-critical" : "text-nominal")}>
-              {telemetry.anomalyActive ? "⚠️ Critical Anomaly Active" : "✔ All Systems Nominal"}
+            <Cpu className="size-4 text-emerald-600" />
+            <span className="text-slate-600 font-medium">Telemetry Health:</span>
+            <span className={cn("font-bold", isAnomalyActive ? "text-red-600" : "text-emerald-600")}>
+              {isAnomalyActive ? "⚠️ Critical Anomaly Active" : "✔ All Systems Nominal"}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {telemetry.anomalyActive ? (
+            {isAnomalyActive ? (
               <button
                 onClick={clearAnomaly}
-                className="rounded border border-nominal/50 bg-nominal/20 px-2.5 py-1 text-[11px] font-semibold text-nominal hover:bg-nominal/30 transition-colors"
+                className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-200 transition-colors shadow-2xs cursor-pointer"
               >
                 Reset Anomaly State
               </button>
             ) : (
               <button
                 onClick={triggerAnomaly}
-                className="rounded border border-critical/50 bg-critical/20 px-2.5 py-1 text-[11px] font-semibold text-critical hover:bg-critical/30 transition-colors"
+                className="rounded-lg border border-red-300 bg-red-100 px-3 py-1 text-xs font-semibold text-red-800 hover:bg-red-200 transition-colors shadow-2xs cursor-pointer"
               >
                 Simulate Anomaly Spike (+35%)
               </button>
@@ -203,81 +213,72 @@ export function AiCopilotModal({ open, onClose }: { open: boolean; onClose: () =
         </div>
 
         {/* Chat Messages Log */}
-        <div className="mt-3 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div ref={chatContainerRef} className="mt-3 flex-1 space-y-3 overflow-y-auto pr-1 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
           {messages.map((m, idx) => (
             <div
               key={idx}
               className={cn("flex gap-3 text-xs leading-relaxed", m.sender === "user" ? "justify-end" : "justify-start")}
             >
               {m.sender === "ai" && (
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-primary/10 text-primary mt-0.5">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-100 text-emerald-700 mt-0.5 shadow-2xs">
                   <Sparkles className="size-3.5" />
                 </div>
               )}
               <div
                 className={cn(
-                  "max-w-[85%] rounded-xl px-4 py-3 border whitespace-pre-line",
+                  "max-w-[85%] rounded-2xl px-4 py-3 border whitespace-pre-line shadow-2xs",
                   m.sender === "user"
-                    ? "border-primary/50 bg-primary/20 text-foreground rounded-tr-none"
-                    : "border-border/70 bg-card/70 text-foreground/95 rounded-tl-none shadow-sm",
+                    ? "border-emerald-600 bg-emerald-600 text-white rounded-tr-none font-medium"
+                    : "border-slate-200 bg-white text-slate-900 rounded-tl-none",
                 )}
+                style={m.sender === "ai" ? { backgroundColor: "#ffffff", opacity: 1, color: "#0f172a" } : { opacity: 1 }}
               >
                 <p>{m.text}</p>
-                <span className="mt-1 block text-[9px] text-muted-foreground text-right">{m.timestamp}</span>
+                <span className={cn("mt-1.5 block text-[9px] text-right font-mono", m.sender === "user" ? "text-emerald-100" : "text-slate-400")}>{m.timestamp}</span>
               </div>
             </div>
           ))}
-
-          {isTyping && (
-            <div className="flex gap-3 text-xs justify-start items-center">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-primary/10 text-primary">
-                <Loader2 className="size-3.5 animate-spin" />
-              </div>
-              <div className="rounded-xl px-4 py-2 border border-border/70 bg-card/60 text-muted-foreground italic text-xs">
-                Polar Sentinel AI is analyzing microgrid vector...
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggested Prompts Quick Bar */}
-        <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Suggested:</span>
-          {SUGGESTED_PROMPTS.map((prompt, i) => (
-            <button
-              key={i}
-              onClick={() => processQuery(prompt)}
-              disabled={isTyping}
-              className="whitespace-nowrap rounded-full border border-border/80 bg-card/60 px-2.5 py-1 text-[11px] text-foreground/80 hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-50"
-            >
-              {prompt}
-            </button>
-          ))}
+        {/* Suggested Queries */}
+        <div className="mt-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">Suggested Queries:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SUGGESTED_PROMPTS.map((prompt, i) => (
+              <button
+                key={i}
+                onClick={() => processQuery(prompt)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all shadow-2xs cursor-pointer"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSend} className="mt-2 flex items-center gap-2 border-t border-border/70 pt-3">
+        <form onSubmit={handleSend} className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">
           <input
-            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={isTyping}
-            placeholder={`Ask AI Copilot about ${station.name}'s fuel runway, generator health, or solar dispatch...`}
-            className="flex-1 rounded-lg border border-border/70 bg-card/80 px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+            autoFocus
+            autoComplete="off"
+            placeholder={`Ask AI Copilot about ${stationName}'s fuel runway, generator health, or solar dispatch...`}
+            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none shadow-xs text-left"
+            style={{ backgroundColor: "#ffffff", color: "#0f172a" }}
           />
           <button
             type="submit"
-            disabled={!input.trim() || isTyping}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            disabled={!input.trim()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
           >
             <span>Ask AI</span>
             <Send className="size-3.5" />
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

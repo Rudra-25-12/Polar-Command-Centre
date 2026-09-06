@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useCallback, useState, type ReactNode } from "react";
 import { STATIONS, type StationConfig, type StationId } from "@/lib/station-data";
 import { fetchDispatch, fetchCurrentConditions } from "@/lib/api";
 import { fetchFuel, fetchFuelForecast, fetchConsumption, fetchShiftRecommendations, fetchLoadShedding, fetchRenewables, fetchEquipmentHealth, fetchSavings } from "@/lib/api";
@@ -121,7 +121,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
     anomalyActive: false,
   });
 
-  const setStationId = (id: StationId) => {
+  const setStationId = useCallback((id: StationId) => {
     setStationIdState(id);
     if (typeof window !== "undefined") {
       try {
@@ -131,7 +131,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       }
     }
     setAnomalyActive(false);
-  };
+  }, []);
 
   // Poll the REAL backend for live telemetry instead of generating random jitter.
   // Fast endpoints only (dispatch, current-conditions) - never the slow Prophet ones here.
@@ -147,17 +147,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
         if (cancelled) return;
 
-        const currentKw = dispatch.demand_kw ?? baseStation.powerDrawKw;
-        const util = baseStation.generatorCapacityKw > 0
-          ? Number(((currentKw / baseStation.generatorCapacityKw) * 100).toFixed(1))
+        const curStation = STATIONS[stationId];
+        const currentKw = dispatch.demand_kw ?? curStation.powerDrawKw;
+        const util = curStation.generatorCapacityKw > 0
+          ? Number(((currentKw / curStation.generatorCapacityKw) * 100).toFixed(1))
           : 0;
 
         setTelemetry({
           powerDrawKw: currentKw,
           utilizationPct: util,
-          flowRateLph: Number((baseStation.dailyConsumptionL / 24).toFixed(1)),
-          tempC: conditions.temp_c ?? baseStation.outsideTempC,
-          windSpeedMs: conditions.wind_ms ?? baseStation.windSpeedMs,
+          flowRateLph: Number((curStation.dailyConsumptionL / 24).toFixed(1)),
+          tempC: conditions.temp_c ?? curStation.outsideTempC,
+          windSpeedMs: conditions.wind_ms ?? curStation.windSpeedMs,
           gridFrequencyHz: 50.0,
           anomalyActive,
         });
@@ -174,13 +175,14 @@ export function StationProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [stationId, baseStation, anomalyActive, isSatMode]);
+  }, [stationId, anomalyActive, isSatMode]);
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     async function refreshFuel() {
       try {
+        const curStation = STATIONS[stationId];
         const [fuelData, forecast] = await Promise.all([
           fetchFuel(stationId),
           fetchFuelForecast(stationId),
@@ -192,7 +194,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         if (latest) {
           const avgConsumption = allReadings.length > 0
             ? allReadings.reduce((sum: number, r: any) => sum + r.diesel_consumed_today, 0) / allReadings.length
-            : baseStation.dailyConsumptionL;
+            : curStation.dailyConsumptionL;
 
           const history = [...allReadings].reverse().map((r: any) => ({
             date: r.timestamp.slice(5, 10),
@@ -201,8 +203,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
           setLiveFuel({
             remainingL: latest.diesel_liters_remaining,
-            capacityL: baseStation.fuelCapacityL,
-            percent: (latest.diesel_liters_remaining / baseStation.fuelCapacityL) * 100,
+            capacityL: curStation.fuelCapacityL,
+            percent: (latest.diesel_liters_remaining / curStation.fuelCapacityL) * 100,
             runwayDays: forecast.days_remaining ?? null,
             runwayConfidence: forecast.confidence_range
               ? { min: forecast.confidence_range.min_days, max: forecast.confidence_range.max_days }
@@ -223,9 +225,9 @@ export function StationProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [stationId, baseStation]);
+  }, [stationId]);
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     async function refreshLoadInfo() {
@@ -272,11 +274,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
     };
   }, [stationId]);
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     async function refreshEnvHistory() {
       try {
+        const curStation = STATIONS[stationId];
         const renewables = await fetchRenewables(stationId);
         if (cancelled) return;
 
@@ -284,7 +287,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
           t: r.timestamp.slice(5, 16).replace("T", " "),
           solar: r.solar_kw,
           wind: r.wind_kw,
-          temp: baseStation.outsideTempC,
+          temp: curStation.outsideTempC,
         }));
         setEnvHistory(points);
       } catch (err) {
@@ -299,7 +302,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [stationId, baseStation]);
+  }, [stationId]);
 
     useEffect(() => {
     let cancelled = false;
@@ -350,10 +353,10 @@ export function StationProvider({ children }: { children: ReactNode }) {
     };
   }, [stationId]);
 
-  const triggerAnomaly = () => setAnomalyActive(true);
-  const clearAnomaly = () => setAnomalyActive(false);
-  const toggleSatMode = () => setIsSatMode((prev) => !prev);
-  const toggleSeason = () => setSeason((prev) => (prev === "winter" ? "summer" : "winter"));
+  const triggerAnomaly = useCallback(() => setAnomalyActive(true), []);
+  const clearAnomaly = useCallback(() => setAnomalyActive(false), []);
+  const toggleSatMode = useCallback(() => setIsSatMode((prev) => !prev), []);
+  const toggleSeason = useCallback(() => setSeason((prev) => (prev === "winter" ? "summer" : "winter")), []);
 
   const value = useMemo(
     () => ({

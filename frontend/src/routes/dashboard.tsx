@@ -141,7 +141,7 @@ function DashboardOverview() {
           description={isHimadri ? "External grid power consumption with thermal heating demand." : "Total draw against generator capacity, with heating share highlighted."}
           source="Simulated sensor feed"
         >
-          <div className="h-[340px]">
+          <div className="h-[340px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <defs>

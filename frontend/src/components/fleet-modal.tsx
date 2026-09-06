@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Activity, ShieldCheck, MapPin, Gauge, Fuel, Users, Thermometer, ArrowRight, X } from "lucide-react";
 import { useStation } from "@/components/station-context";
 import { STATIONS, STATION_ORDER, fuelPercent, runwayDays, severityForRunway } from "@/lib/station-data";
@@ -6,15 +7,26 @@ import { cn } from "@/lib/utils";
 export function FleetModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { stationId, setStationId } = useStation();
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const totalFuelL = STATION_ORDER.reduce((acc, id) => acc + STATIONS[id].fuelRemainingL, 0);
   const totalPersonnel = STATION_ORDER.reduce((acc, id) => acc + STATIONS[id].headcount, 0);
   const totalPowerKw = STATION_ORDER.reduce((acc, id) => acc + STATIONS[id].powerDrawKw, 0);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl rounded-xl border border-border/80 bg-background/95 p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 1. SEPARATE BACKDROP OVERLAY LAYER */}
+      <div
+        className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* 2. ISOLATED MODAL DIALOG CARD */}
+      <div
+        className="relative z-10 w-full max-w-5xl rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900"
+        style={{ backgroundColor: "#ffffff", opacity: 1, color: "#0f172a" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="flex items-start justify-between border-b border-border/70 pb-4">
           <div>
@@ -163,6 +175,7 @@ export function FleetModal({ open, onClose }: { open: boolean; onClose: () => vo
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

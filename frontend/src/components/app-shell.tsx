@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
@@ -36,10 +36,13 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { stationId, station, setStationId, telemetry, isSatMode, toggleSatMode, season, toggleSeason } = useStation();
+  const { stationId, station, setStationId, telemetry, isSatMode, toggleSatMode, season, toggleSeason, triggerAnomaly, clearAnomaly } = useStation();
 
   const [fleetOpen, setFleetOpen] = useState(false);
   const [aiCopilotOpen, setAiCopilotOpen] = useState(false);
+
+  const handleCloseFleet = useCallback(() => setFleetOpen(false), []);
+  const handleCloseCopilot = useCallback(() => setAiCopilotOpen(false), []);
 
   // If on the root Landing Page route, render full width without sidebar frame
   if (pathname === "/") {
@@ -48,8 +51,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <FleetModal open={fleetOpen} onClose={() => setFleetOpen(false)} />
-      <AiCopilotModal open={aiCopilotOpen} onClose={() => setAiCopilotOpen(false)} />
+      <FleetModal open={fleetOpen} onClose={handleCloseFleet} />
+      <AiCopilotModal
+        open={aiCopilotOpen}
+        onClose={handleCloseCopilot}
+        station={station}
+        telemetry={telemetry}
+        triggerAnomaly={triggerAnomaly}
+        clearAnomaly={clearAnomaly}
+      />
 
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         {/* Polished Logo Badge Header */}
@@ -98,8 +108,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* AI Copilot Quick Button in Sidebar */}
         <div className="p-3 border-t border-sidebar-border space-y-2">
           <button
-            onClick={() => setAiCopilotOpen(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all shadow-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAiCopilotOpen(true);
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all shadow-xs cursor-pointer"
           >
             <Sparkles className="size-3.5" />
             <span>AI Station Copilot</span>
