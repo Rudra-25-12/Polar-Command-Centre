@@ -122,17 +122,6 @@ function LoadPage() {
             </button>
           }
         >
-          {/* Rule Logic Box */}
-          <div className="mb-3 rounded-lg border border-border/80 bg-card/60 p-3 text-xs font-mono">
-            <span className="text-[10px] uppercase font-bold text-primary block mb-1">Safety Rule in Code (Deterministic If-Else):</span>
-            <code className="text-[11px] text-foreground leading-relaxed block bg-background/80 p-2.5 rounded border border-border/60">
-              if supply &lt; demand:<br />
-              &nbsp;&nbsp;turn_off("Low Priority") &nbsp;&nbsp;# Extra lighting, comfort items<br />
-              &nbsp;&nbsp;if deficit &gt; low_priority_capacity:<br />
-              &nbsp;&nbsp;&nbsp;&nbsp;warn_station_commander("Approve shedding Research Equipment or Override")
-            </code>
-          </div>
-
           {/* 3 Categories Summary Grid */}
           <div className="grid grid-cols-3 gap-2 text-[11px] mb-3 font-mono">
             <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-center">
