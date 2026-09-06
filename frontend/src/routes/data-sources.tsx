@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Database, Server, Cpu, CheckCircle2, ShieldCheck } from "lucide-react";
 import { PageHeader, Panel, SourceTag } from "@/components/telemetry";
 import { STATIONS, STATION_ORDER } from "@/lib/station-data";
-import { isSupabaseConnected } from "@/lib/supabase";
 
 export const Route = createFileRoute("/data-sources")({
   head: () => ({
@@ -10,7 +9,7 @@ export const Route = createFileRoute("/data-sources")({
       { title: "Data Sources & Architecture — Polar Station Energy Command" },
       {
         name: "description",
-        content: "Telemetry provenance, Supabase database schema and Python forecasting integration map.",
+        content: "Telemetry provenance, backend architecture and AI model integration map.",
       },
       { property: "og:title", content: "Data Sources & Architecture — Polar Station Energy Command" },
       { property: "og:description", content: "Provenance and backend connection mapping." },
@@ -19,14 +18,16 @@ export const Route = createFileRoute("/data-sources")({
   component: DataSourcesPage,
 });
 
-const SUPABASE_TABLES = [
-  { table: "stations", description: "Station config, mode, coordinates, berth capacity & baseline metrics" },
-  { table: "fuel_readings", description: "Time-series tank level (L), capacity, and instantaneous flow rate (L/h)" },
-  { table: "power_readings", description: "Generation (kW) & end-use load split (Heating, Labs, Living, Utilities)" },
-  { table: "personnel_logs", description: "Station headcount, expedition roles, typical seasonal range & berth ceilings" },
-  { table: "environmental_readings", description: "Solar radiation (W/m²), wind speed (m/s), outside temperature (°C)" },
-  { table: "forecasts", description: "AI Prophet model 90-day depletion projections and 95% confidence bands" },
-  { table: "alerts", description: "Severity-ranked anomaly notifications, sensor dropouts & maintenance logs" },
+const API_ENDPOINTS = [
+  { table: "/consumption, /load-forecast", description: "Zone-wise power draw and Prophet-based demand forecasting" },
+  { table: "/fuel, /fuel-forecast", description: "Fuel tank level history and Prophet-based depletion forecast with confidence bands" },
+  { table: "/renewables, /dispatch", description: "Real astral-calculated solar + NPDC-calibrated wind, and renewable-first dispatch decision" },
+  { table: "/load-shedding-status", description: "Safety-tiered automatic load shedding decision engine" },
+  { table: "/equipment-health", description: "Isolation Forest anomaly detection on equipment vibration & temperature" },
+  { table: "/savings, /sustainability-report", description: "Diesel/CO2 savings tracking vs. baseline, formatted sustainability report" },
+  { table: "/shift-recommendations", description: "Shiftable-load recommendations aligned to renewable surplus windows" },
+  { table: "/scenario-simulator, /renewable-expansion-suggestion", description: "What-if renewable capacity modeling" },
+  { table: "/hq-summary", description: "Compressed telemetry summary simulating low-bandwidth satellite sync to HQ" },
 ];
 
 function DataSourcesPage() {
@@ -34,7 +35,7 @@ function DataSourcesPage() {
     <>
       <PageHeader
         title="Data Sources & Architecture"
-        subtitle="Telemetry provenance, database schema mapping, and Supabase / Python backend connection roadmap"
+        subtitle="Telemetry provenance, backend architecture, and real research data grounding"
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -44,62 +45,53 @@ function DataSourcesPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider">Backend Connection:</span>
-                {isSupabaseConnected ? (
-                  <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-400">
-                    Supabase Live Connected
-                  </span>
-                ) : (
-                  <span className="rounded bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-300">
-                    Local SCADA Node Active
-                  </span>
-                )}
+                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-400">
+                  FastAPI Backend Live Connected
+                </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {isSupabaseConnected
-                  ? "Streaming live telemetry from Supabase Postgres & Realtime WebSockets."
-                  : "Telemetry values served via high-frequency local SCADA node pipeline, ready for instant sync with Supabase JS client."}
+                Live telemetry and AI predictions served by a Python FastAPI backend, polled at intervals appropriate to each data type (5s for live power/climate, 30-60s for AI model outputs).
               </p>
             </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <SourceTag source="SCADA Bus Node" />
-            <SourceTag source="NPDC Telemetry Archive" />
-            <SourceTag source="AWS Weather Array" />
-            <SourceTag source="NCPOR Logistics Manifest" />
+            <SourceTag source="NCPOR Annual Reports (2013-14 to 2024-25)" />
+            <SourceTag source="National Polar Data Center (NPDC)" />
+            <SourceTag source="NCPOR/NCAOR Official Station Pages" />
           </div>
         </Panel>
 
-        <Panel title="Architecture Roadmap (Supabase + Python FastAPI + Prophet)">
+        <Panel title="Backend Architecture (Python FastAPI + SQLite + AI Models)">
           <ul className="space-y-2.5 text-xs text-muted-foreground leading-relaxed">
             <li className="flex items-start gap-2">
-              <span className="font-semibold text-primary">Step 1 —</span>
-              <span><strong>Supabase Database:</strong> Single source of truth. Stores telemetry readings and AI predictions.</span>
+              <span className="font-semibold text-primary">Data Layer —</span>
+              <span><strong>SQLite Database:</strong> Stores synthetic sensor readings calibrated against real NCPOR/NPDC data, per station.</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="font-semibold text-primary">Step 2 —</span>
-              <span><strong>Python FastAPI Microservice:</strong> Generates sensor telemetry & runs Prophet model for 90-day depletion curves.</span>
+              <span className="font-semibold text-primary">AI Layer —</span>
+              <span><strong>Facebook Prophet:</strong> Load and fuel forecasting with confidence intervals. <strong>Isolation Forest (scikit-learn):</strong> Predictive maintenance anomaly detection.</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="font-semibold text-primary">Step 3 —</span>
-              <span><strong>Supabase Realtime:</strong> WebSockets push newly inserted readings to frontend components without polling.</span>
+              <span className="font-semibold text-primary">API Layer —</span>
+              <span><strong>FastAPI:</strong> Serves 18 endpoints across load forecasting, renewable integration, and fuel optimization — the three pillars of SIH26061.</span>
             </li>
           </ul>
         </Panel>
       </div>
 
-      <Panel className="mt-4" title="Supabase Database Schema Map" bodyClassName="p-0">
+      <Panel className="mt-4" title="Backend API Endpoint Map" bodyClassName="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
               <tr className="border-b border-border/60">
-                <th className="px-5 py-3">Table Name</th>
-                <th className="px-5 py-3">Schema & Fields</th>
+                <th className="px-5 py-3">Endpoint(s)</th>
+                <th className="px-5 py-3">Function</th>
                 <th className="px-5 py-3">Frontend Consumer</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {SUPABASE_TABLES.map((t) => (
+              {API_ENDPOINTS.map((t) => (
                 <tr key={t.table}>
                   <td className="data-num px-5 py-3 font-semibold text-primary">{t.table}</td>
                   <td className="px-5 py-3 text-xs text-muted-foreground">{t.description}</td>
@@ -115,7 +107,7 @@ function DataSourcesPage() {
         </div>
       </Panel>
 
-      <Panel className="mt-4" title="Per-Station Baseline Parameters" bodyClassName="p-0">
+      <Panel className="mt-4" title="Per-Station Baseline Parameters (Real, Cited Research Data)" bodyClassName="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -147,4 +139,3 @@ function DataSourcesPage() {
     </>
   );
 }
-

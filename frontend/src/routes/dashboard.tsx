@@ -47,9 +47,9 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardOverview() {
-  const { station, telemetry } = useStation();
+  const { station, telemetry, liveFuel } = useStation();
   const series = useMemo(() => powerSeries(station), [station.id]);
-  const days = runwayDays(station);
+  const days = liveFuel?.runwayDays ?? runwayDays(station);
   const sev = severityForRunway(days);
   const isHimadri = station.sharedInfrastructure;
 
@@ -115,10 +115,10 @@ function DashboardOverview() {
 
         <StatCard
           label={isHimadri ? "Backup Tank Level" : "Fuel tank level"}
-          value={fuelPercent(station).toFixed(1)}
+          value={(liveFuel?.percent ?? fuelPercent(station)).toFixed(1)}
           unit="%"
           icon={Fuel}
-          hint={`${station.fuelRemainingL.toLocaleString()} L of ${station.fuelCapacityL.toLocaleString()} L`}
+          hint={liveFuel ? `${Math.round(liveFuel.remainingL).toLocaleString()} L of ${liveFuel.capacityL.toLocaleString()} L` : `${station.fuelRemainingL.toLocaleString()} L of ${station.fuelCapacityL.toLocaleString()} L`}
           source="Depot Gauge"
         />
 

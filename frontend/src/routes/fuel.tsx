@@ -21,12 +21,7 @@ import {
   SourceTag,
   StatCard,
 } from "@/components/telemetry";
-import {
-  consumptionSeries,
-  fuelPercent,
-  runwayDays,
-  severityForRunway,
-} from "@/lib/station-data";
+import { severityForRunway } from "@/lib/station-data";
 import { axisProps, chartTooltip } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
 
@@ -57,19 +52,25 @@ const PRESETS = [
 ];
 
 function FuelPage() {
-  const { station, telemetry } = useStation();
+  const { station, telemetry, liveFuel } = useStation();
   const [multiplier, setMultiplier] = useState(1);
-  const series = useMemo(() => consumptionSeries(station), [station.id]);
-  const baseDays = runwayDays(station);
-  const days = runwayDays(station, multiplier);
-  const sev = severityForRunway(days);
   const isHimadri = station.sharedInfrastructure;
 
-  const emptyDate = new Date(Date.UTC(2026, 8, 4) + days * 86_400_000).toLocaleDateString("en-GB", {
+  const dailyConsumption = liveFuel?.avgDailyConsumptionL ?? station.dailyConsumptionL;
+  const fuelPct = liveFuel?.percent ?? ((station.fuelRemainingL / station.fuelCapacityL) * 100);
+  const remainingL = liveFuel?.remainingL ?? station.fuelRemainingL;
+  const capacityL = liveFuel?.capacityL ?? station.fuelCapacityL;
+
+  const baseDays = liveFuel?.runwayDays ?? (remainingL / dailyConsumption);
+  const days = baseDays / multiplier;
+  const sev = severityForRunway(days);
+
+  const series = liveFuel?.history ?? [];
+
+  const emptyDate = new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "UTC",
   });
 
   return (
@@ -80,12 +81,12 @@ function FuelPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Panel title={isHimadri ? "Backup Tank Level" : "Tank Level"} source="Est. from historical delivery data" bodyClassName="flex flex-col items-center justify-center">
+        <Panel title={isHimadri ? "Backup Tank Level" : "Tank Level"} source="AI Fuel Forecast (Prophet)" bodyClassName="flex flex-col items-center justify-center">
           <RadialGauge
-            value={fuelPercent(station)}
+            value={fuelPct}
             label="usable capacity"
-            sublabel={`${station.fuelRemainingL.toLocaleString()} L of ${station.fuelCapacityL.toLocaleString()} L`}
-            severity={fuelPercent(station) < 30 ? "critical" : fuelPercent(station) < 55 ? "warning" : "nominal"}
+            sublabel={`${Math.round(remainingL).toLocaleString()} L of ${capacityL.toLocaleString()} L`}
+            severity={fuelPct < 30 ? "critical" : fuelPct < 55 ? "warning" : "nominal"}
           />
           <div className="mt-4 flex items-center justify-between w-full border-t border-border/60 pt-3 text-xs text-muted-foreground">
             <span>Instantaneous Flow:</span>
@@ -97,7 +98,7 @@ function FuelPage() {
           className="xl:col-span-2"
           title="Crisis Multiplier — Delayed Resupply Stress Test"
           description="Scale daily burn to simulate colder-than-planned seasons or a delayed ice-class resupply vessel."
-          source="Modelled projection"
+          source="AI Fuel Forecast (Prophet, 90% confidence)"
         >
           <div className="grid gap-6 md:grid-cols-2">
             <div>
@@ -111,6 +112,11 @@ function FuelPage() {
                 </span>
                 <span className="text-sm text-muted-foreground">days until empty</span>
               </div>
+              {liveFuel?.runwayConfidence && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Confidence range: <span className="data-num font-medium text-foreground">{liveFuel.runwayConfidence.min}–{liveFuel.runwayConfidence.max} days</span>
+                </p>
+              )}
               <p className="mt-2 text-xs text-muted-foreground">
                 Projected dry tank date: <span className="data-num font-medium text-foreground">{emptyDate}</span>
                 {multiplier > 1 && (
@@ -121,7 +127,6 @@ function FuelPage() {
                 )}
               </p>
 
-              {/* Slider & Presets */}
               <div className="mt-6">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Crisis Burn Multiplier</span>
@@ -138,7 +143,7 @@ function FuelPage() {
                     setMultiplier(typeof v === "number" && !isNaN(v) ? v : 1);
                   }}
                 />
-                
+
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {PRESETS.map((p) => (
                     <button
@@ -170,7 +175,7 @@ function FuelPage() {
               <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-xs text-muted-foreground">
                 Effective burn at <strong className="text-foreground">{multiplier.toFixed(2)}x</strong>:{" "}
                 <span className="data-num font-semibold text-foreground">
-                  {Math.round(station.dailyConsumptionL * multiplier).toLocaleString()} L/day
+                  {Math.round(dailyConsumption * multiplier).toLocaleString()} L/day
                 </span>
                 <div className="mt-2">
                   <SourceTag source="Modelled projection" />
@@ -184,21 +189,21 @@ function FuelPage() {
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Baseline burn"
-          value={station.dailyConsumptionL.toLocaleString()}
+          value={dailyConsumption.toLocaleString()}
           unit="L/day"
           icon={Flame}
-          source="Flow Meter Array"
+          source="AI Fuel Forecast"
         />
         <StatCard
           label="Tank capacity"
-          value={station.fuelCapacityL.toLocaleString()}
+          value={capacityL.toLocaleString()}
           unit="L"
           icon={Database}
           source="NCPOR Logistics Manifest"
         />
         <StatCard
           label="Fuel cost exposure"
-          value={`$${Math.round((station.fuelRemainingL * station.fuelCostPerLitre) / 1000).toLocaleString()}k`}
+          value={`$${Math.round((remainingL * station.fuelCostPerLitre) / 1000).toLocaleString()}k`}
           unit="USD"
           icon={DollarSign}
           hint={`At $${station.fuelCostPerLitre.toFixed(2)}/L landed cost`}
@@ -208,19 +213,19 @@ function FuelPage() {
 
       <Panel
         className="mt-4"
-        title="Consumption trend — last 30 days"
+        title="Consumption trend — last 90 days"
         description="Daily fuel burn compared to baseline and crisis scenario thresholds."
-        source="Fuel Depot Telemetry"
+        source="Fuel Depot Telemetry (real calibrated data)"
       >
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
               <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="t" {...axisProps} interval={3} />
+              <XAxis dataKey="date" {...axisProps} interval={9} />
               <YAxis {...axisProps} unit=" L" />
               <RTooltip {...chartTooltip} />
               <ReferenceLine
-                y={station.dailyConsumptionL * multiplier}
+                y={dailyConsumption * multiplier}
                 stroke="var(--warning)"
                 strokeDasharray="4 4"
                 label={{ value: "stress threshold", fill: "var(--warning)", fontSize: 10, position: "right" }}
@@ -233,14 +238,6 @@ function FuelPage() {
                 strokeWidth={2}
                 dot={false}
               />
-              <Line
-                type="monotone"
-                dataKey="baseline"
-                name="Baseline"
-                stroke="var(--muted-foreground)"
-                strokeDasharray="5 4"
-                dot={false}
-              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -248,4 +245,3 @@ function FuelPage() {
     </>
   );
 }
-

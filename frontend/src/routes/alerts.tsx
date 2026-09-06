@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, AlertOctagon, BellRing, Zap } from "lucide-react";
 import { useStation } from "@/components/station-context";
 import { PageHeader, Panel, SeverityBadge, SourceTag } from "@/components/telemetry";
-import { alertsFor, type Severity } from "@/lib/station-data";
+import { type Severity } from "@/lib/station-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/alerts")({
@@ -21,24 +21,97 @@ export const Route = createFileRoute("/alerts")({
   component: AlertsPage,
 });
 
+interface DisplayAlert {
+  id: string;
+  title: string;
+  detail: string;
+  severity: Severity;
+  timestamp: string;
+  source: string;
+}
+
 function AlertsPage() {
-  const { station, telemetry, triggerAnomaly, clearAnomaly } = useStation();
+  const { station, telemetry, liveFuel, loadInfo, equipmentHealth, triggerAnomaly, clearAnomaly } = useStation();
   const [filter, setFilter] = useState<Severity | "all">("all");
   const [acknowledged, setAcknowledged] = useState<string[]>([]);
 
-  const rawAlerts = alertsFor(station);
-  if (telemetry.anomalyActive) {
-    rawAlerts.unshift({
-      id: `${station.id}-surge`,
-      title: "Critical Microgrid Thermal Spike",
-      detail: "35% unexpected power demand jump detected across microgrid heaters.",
-      severity: "critical",
-      timestamp: "Just now",
-      source: "SCADA Telemetry Array",
-    });
-  }
+  const alerts: DisplayAlert[] = useMemo(() => {
+    const built: DisplayAlert[] = [];
 
-  const alerts = rawAlerts
+    // Real predictive-maintenance alerts from the Isolation Forest model
+    for (const eq of equipmentHealth) {
+      if (eq.severity === "HIGH") {
+        built.push({
+          id: `${station.id}-eq-${eq.equipment_id}`,
+          title: `Predictive Maintenance Alert: ${eq.equipment_id}`,
+          detail: `Vibration deviation +${eq.vibration_deviation_from_normal?.toFixed(2)} from normal, temperature deviation +${eq.temperature_deviation_from_normal?.toFixed(2)}°C. Early-warning signature consistent with developing mechanical fault.`,
+          severity: "critical",
+          timestamp: eq.latest_anomaly_time?.slice(0, 16).replace("T", " ") ?? "Recent",
+          source: "AI Predictive Maintenance (Isolation Forest)",
+        });
+      } else if (eq.severity === "LOW") {
+        built.push({
+          id: `${station.id}-eq-${eq.equipment_id}`,
+          title: `Minor variance: ${eq.equipment_id}`,
+          detail: "Statistically unusual reading detected, but within safe operating bounds.",
+          severity: "warning",
+          timestamp: eq.latest_anomaly_time?.slice(0, 16).replace("T", " ") ?? "Recent",
+          source: "AI Predictive Maintenance (Isolation Forest)",
+        });
+      }
+    }
+
+    // Real fuel runway alert
+    if (liveFuel?.runwayDays != null) {
+      built.push({
+        id: `${station.id}-fuel`,
+        title: liveFuel.runwayDays < 120 ? "Fuel runway below resupply window" : "Fuel level nominal",
+        detail: `${liveFuel.runwayDays} days of runway at current burn rate (AI forecast, ${liveFuel.runwayConfidence ? `${liveFuel.runwayConfidence.min}-${liveFuel.runwayConfidence.max} day confidence range` : "modelled"}).`,
+        severity: liveFuel.runwayDays < 45 ? "critical" : liveFuel.runwayDays < 120 ? "warning" : "nominal",
+        timestamp: "Live",
+        source: "AI Fuel Forecast (Prophet)",
+      });
+    }
+
+    // Real load-shedding alert
+    if (loadInfo?.shedding.required) {
+      built.push({
+        id: `${station.id}-shedding`,
+        title: "Load Shedding Active",
+        detail: loadInfo.shedding.message,
+        severity: "warning",
+        timestamp: "Live",
+        source: "Load Shedding Engine",
+      });
+    }
+
+    // Interactive demo anomaly (kept from original for pitch/demo purposes)
+    if (telemetry.anomalyActive) {
+      built.unshift({
+        id: `${station.id}-surge`,
+        title: "Critical Microgrid Thermal Spike",
+        detail: "35% unexpected power demand jump detected across microgrid heaters.",
+        severity: "critical",
+        timestamp: "Just now",
+        source: "SCADA Telemetry Array (Simulated Demo)",
+      });
+    }
+
+    if (built.length === 0) {
+      built.push({
+        id: `${station.id}-allclear`,
+        title: "All Systems Nominal",
+        detail: "No active alerts from fuel forecasting, load shedding, or predictive maintenance systems.",
+        severity: "nominal",
+        timestamp: "Live",
+        source: "AI Monitoring Systems",
+      });
+    }
+
+    return built;
+  }, [station.id, equipmentHealth, liveFuel, loadInfo, telemetry.anomalyActive]);
+
+  const filtered = alerts
     .filter((a) => filter === "all" || a.severity === filter)
     .sort((a, b) =>
       a.severity === b.severity
@@ -58,9 +131,8 @@ function AlertsPage() {
 
   return (
     <>
-      <PageHeader title={`${station.name} — Alerts & Anomaly Telemetry`} subtitle="Severity-ranked anomaly detection & predictive maintenance feed" />
+      <PageHeader title={`${station.name} — Alerts & Anomaly Telemetry`} subtitle="Real AI-driven anomaly detection & predictive maintenance feed" />
 
-      {/* Trigger Anomaly Bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/40 p-4">
         <div className="flex items-center gap-2 text-xs">
           <BellRing className="size-4 text-primary" />
@@ -88,7 +160,7 @@ function AlertsPage() {
 
       <Panel
         title="Active Telemetry Feed"
-        source="SCADA Telemetry Array"
+        source="AI Monitoring Systems"
         bodyClassName="p-0"
         action={
           <div className="flex flex-wrap gap-1.5">
@@ -110,10 +182,10 @@ function AlertsPage() {
         }
       >
         <ul className="divide-y divide-border/60">
-          {alerts.length === 0 ? (
+          {filtered.length === 0 ? (
             <li className="p-8 text-center text-xs text-muted-foreground">No alerts match the selected severity filter.</li>
           ) : (
-            alerts.map((a) => {
+            filtered.map((a) => {
               const isAck = acknowledged.includes(a.id);
               return (
                 <li
@@ -156,4 +228,3 @@ function AlertsPage() {
     </>
   );
 }
-

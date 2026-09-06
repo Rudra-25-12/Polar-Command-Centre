@@ -37,87 +37,33 @@ export const Route = createFileRoute("/load")({
 });
 
 const KEYS = [
-  { key: "heating", label: "Space & Water Heating", icon: Flame, color: "var(--chart-3)" },
-  { key: "labs", label: "Scientific Labs & Instrumentation", icon: Server, color: "var(--chart-1)" },
-  { key: "living", label: "Living Quarters & Kitchen", icon: Home, color: "var(--chart-5)" },
-  { key: "utilities", label: "Water Melt & Life Support Utilities", icon: Wrench, color: "var(--chart-2)" },
-];
-
-interface ShedTier {
-  id: string;
-  tier: string;
-  name: string;
-  kwReduction: number;
-  fuelSavedPerDay: number;
-  category: string;
-  risk: "Low Risk" | "Medium Risk" | "High Risk";
-}
-
-const LOAD_SHED_TIERS: ShedTier[] = [
-  {
-    id: "tier-1",
-    tier: "Tier 1 (Non-Essential)",
-    name: "Non-critical deep ice core sample incubator standby",
-    kwReduction: 15,
-    fuelSavedPerDay: 60,
-    category: "Labs",
-    risk: "Low Risk",
-  },
-  {
-    id: "tier-2",
-    tier: "Tier 2 (Auxiliary)",
-    name: "Secondary snow melt tank & laundry sub-circuit",
-    kwReduction: 12,
-    fuelSavedPerDay: 48,
-    category: "Utilities",
-    risk: "Medium Risk",
-  },
-  {
-    id: "tier-3",
-    tier: "Tier 3 (Emergency)",
-    name: "Common corridor hydronic heating reduction (-3°C offset)",
-    kwReduction: 22,
-    fuelSavedPerDay: 88,
-    category: "Heating",
-    risk: "High Risk",
-  },
+  { key: "heating", label: "Space & Water Heating", icon: Flame, color: "var(--chart-3)", zone: "Heating" },
+  { key: "labs", label: "Scientific Labs & Instrumentation", icon: Server, color: "var(--chart-1)", zone: "Labs" },
+  { key: "living", label: "Living Quarters & Kitchen", icon: Home, color: "var(--chart-5)", zone: "Dorms" },
+  { key: "utilities", label: "Water Melt & Life Support Utilities", icon: Wrench, color: "var(--chart-2)", zone: "Kitchen" },
 ];
 
 function LoadPage() {
-  const { station, telemetry } = useStation();
+  const { station, telemetry, loadInfo } = useStation();
   const data = useMemo(() => loadBreakdownSeries(station), [station.id]);
 
-  // Operator-gated load shedding state
-  const [approvedTiers, setApprovedTiers] = useState<string[]>([]);
-  const [shiftApplied, setShiftApplied] = useState(false);
-
-  // Reset load shedding controls on station switch
-  useEffect(() => {
-    setApprovedTiers([]);
-    setShiftApplied(false);
-  }, [station.id]);
-
-  const toggleTier = (id: string) => {
-    setApprovedTiers((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  const zoneKw = (zone: string) => {
+    const found = loadInfo?.zoneBreakdown.find((z) => z.zone === zone);
+    return found ? found.kw : 0;
   };
 
-  const totalShedKw = LOAD_SHED_TIERS.filter((t) => approvedTiers.includes(t.id)).reduce(
-    (a, b) => a + b.kwReduction,
-    0,
-  );
-  const totalFuelSaved = LOAD_SHED_TIERS.filter((t) => approvedTiers.includes(t.id)).reduce(
-    (a, b) => a + b.fuelSavedPerDay,
-    0,
-  );
+  const totalRealKw = loadInfo?.zoneBreakdown.reduce((sum, z) => sum + z.kw, 0) ?? telemetry.powerDrawKw;
+
+  const shedding = loadInfo?.shedding;
+  const shiftRec = loadInfo?.shiftRecommendation;
 
   return (
     <>
       <PageHeader
         title={`${station.name} — Load Breakdown & Microgrid Controls`}
-        subtitle="Generation → end-use distribution, human-approved load shedding & shiftable load optimization"
+        subtitle="Generation → end-use distribution, AI-driven load shedding & shiftable load optimization"
       />
 
-      {/* Critical Thermal Note Banner */}
       <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs leading-relaxed text-amber-950 dark:text-amber-100 shadow-xs">
         <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
           <Flame className="size-4 text-amber-600 dark:text-amber-400" />
@@ -128,15 +74,14 @@ function LoadPage() {
         </p>
       </div>
 
-      {/* SCADA Single-Line Microgrid Bus Topology Diagram */}
       <div className="mb-4">
         <ScadaDiagram />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KEYS.map(({ key, label, icon: Icon, color }) => {
-          const pct = station.loadSplit[key as keyof typeof station.loadSplit];
-          const kw = Math.max(0, Math.round((telemetry.powerDrawKw * pct) / 100));
+        {KEYS.map(({ key, label, icon: Icon, zone }) => {
+          const kw = zoneKw(zone);
+          const pct = totalRealKw > 0 ? Math.round((kw / totalRealKw) * 100) : 0;
           return (
             <StatCard
               key={key}
@@ -144,105 +89,70 @@ function LoadPage() {
               value={String(pct)}
               unit="% of load"
               icon={Icon}
-              hint={`Estimated ${kw} kW active load`}
-              source="Bus Telemetry"
+              hint={`${kw.toFixed(1)} kW active load`}
+              source="Real Sensor Feed"
             />
           );
         })}
       </div>
 
-      {/* Interactive Human-in-the-Loop Load Shedding Control Panel */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel
-          title="Human-in-the-Loop Load Shedding Override"
-          description="Select non-essential circuits to drop power draw in case of low reserve or generator fault."
-          source="Microgrid Control Logic"
+          title="AI-Driven Load Shedding Status"
+          description="Automatic safety-tiered shedding decision based on current supply vs demand."
+          source="Load Shedding Engine"
         >
-          <div className="space-y-3">
-            {LOAD_SHED_TIERS.map((t) => {
-              const isApproved = approvedTiers.includes(t.id);
-              return (
-                <div
-                  key={t.id}
-                  className={cn(
-                    "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3.5 transition-all text-xs",
-                    isApproved
-                      ? "border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 shadow-xs"
-                      : "border-border/70 bg-card/40 text-muted-foreground hover:border-border",
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", isApproved ? "bg-amber-500 text-slate-950" : "bg-muted text-foreground")}>
-                        {t.tier}
-                      </span>
-                      <span className="text-foreground">{t.name}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-[11px]">
-                      <span>Reduction: <strong className="data-num text-primary">-{t.kwReduction} kW</strong></span>
-                      <span>Fuel saved: <strong className="data-num text-nominal">+{t.fuelSavedPerDay} L/day</strong></span>
-                      <span className={cn(t.risk === "Low Risk" ? "text-emerald-600 dark:text-emerald-400 font-semibold" : t.risk === "Medium Risk" ? "text-amber-700 dark:text-amber-400 font-semibold" : "text-rose-600 dark:text-rose-400 font-semibold")}>
-                        {t.risk}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => toggleTier(t.id)}
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
-                      isApproved
-                        ? "border-amber-500 bg-amber-500/20 text-amber-900 dark:text-amber-300 font-bold"
-                        : "border-border/80 bg-muted/30 text-foreground hover:bg-muted/60",
-                    )}
-                  >
-                    {isApproved ? "Approved (Shedding Active)" : "Approve Shed"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            <span>Approved Load Reduction:</span>
-            <span className="data-num font-semibold text-primary">-{totalShedKw} kW ({totalFuelSaved} L/day saved)</span>
-          </div>
+          {shedding ? (
+            <div
+              className={cn(
+                "rounded-lg border p-4 text-xs leading-relaxed",
+                shedding.required
+                  ? "border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100"
+                  : "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-950 dark:text-emerald-100",
+              )}
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                {shedding.required ? <ShieldAlert className="size-4" /> : <CheckCircle2 className="size-4" />}
+                <span>{shedding.required ? "Shedding Active" : "Supply Meets Demand"}</span>
+              </div>
+              <p className="mt-2">{shedding.message}</p>
+              {shedding.shedZones.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {shedding.shedZones.map((z: any, i: number) => (
+                    <li key={i} className="flex items-center justify-between border-t border-current/10 pt-1.5">
+                      <span className="font-medium">{z.zone}</span>
+                      <span className="rounded bg-current/10 px-1.5 py-0.5 text-[10px] font-bold uppercase">{z.tier_name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Loading load-shedding status...</p>
+          )}
         </Panel>
 
-        {/* Shiftable-Load & Renewable Dispatch Optimizer */}
         <Panel
           title="Shiftable-Load & Renewable Dispatch Optimizer"
           description="AI recommendations to align discretionary thermal/water load with peak renewable availability."
-          source="Modelled projection"
+          source="Shiftable Load Engine"
         >
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-xs leading-relaxed">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <Clock className="size-4" />
-              <span>Discretionary Load Shift Window</span>
+          {shiftRec ? (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-xs leading-relaxed">
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <Clock className="size-4" />
+                <span>Discretionary Load Shift Recommendation</span>
+              </div>
+              <p className="mt-2 text-muted-foreground">
+                <strong className="text-foreground">{shiftRec.zone}</strong> can be shifted: {shiftRec.reason}
+              </p>
+              <div className="mt-3 flex items-center justify-between border-t border-primary/20 pt-2 text-[11px]">
+                <span>Available Surplus: <strong className="data-num text-nominal">{shiftRec.surplusKw.toFixed(1)} kW</strong></span>
+              </div>
             </div>
-            <p className="mt-2 text-muted-foreground">
-              Station thermal sensors predict a peak solar radiation window between <strong className="text-foreground">12:00 UTC and 15:30 UTC</strong>. Shifting bulk snow-melt tank heating to this window will displace engine generator load.
-            </p>
-            <div className="mt-3 flex items-center justify-between border-t border-primary/20 pt-2 text-[11px]">
-              <span>Estimated Diesel Saved: <strong className="data-num text-nominal">+140 Litres / cycle</strong></span>
-              <span>Grid Impact: <strong className="data-num text-sky-400">-18% Peak Demand</strong></span>
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Status: {shiftApplied ? "Shift Schedule Active in SCADA" : "Manual Approval Required"}</span>
-            <button
-              onClick={() => setShiftApplied((prev) => !prev)}
-              className={cn(
-                "rounded-md border px-3.5 py-1.5 text-xs font-semibold transition-all",
-                shiftApplied
-                  ? "border-nominal bg-nominal/20 text-nominal"
-                  : "border-primary/60 bg-primary/20 text-primary hover:bg-primary/30",
-              )}
-            >
-              {shiftApplied ? "✔ Dispatch Schedule Applied" : "Apply AI Dispatch Schedule"}
-            </button>
-          </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No shiftable-load surplus window currently available.</p>
+          )}
         </Panel>
       </div>
 
@@ -279,5 +189,3 @@ function LoadPage() {
     </>
   );
 }
-
-

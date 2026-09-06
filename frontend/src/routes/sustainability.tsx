@@ -15,7 +15,7 @@ import {
 import { Leaf, SunMedium, Wind, DollarSign, Download, Printer, BatteryCharging, Sparkles, Sliders, ShieldCheck } from "lucide-react";
 import { useStation } from "@/components/station-context";
 import { PageHeader, Panel, StatCard } from "@/components/telemetry";
-import { fuelCostSeries, sustainability } from "@/lib/station-data";
+import { fuelCostSeries } from "@/lib/station-data";
 import { axisProps, chartTooltip } from "@/lib/chart-theme";
 import { Slider } from "@/components/ui/slider";
 
@@ -35,16 +35,18 @@ export const Route = createFileRoute("/sustainability")({
 });
 
 function SustainabilityPage() {
-  const { station } = useStation();
-  const s = sustainability(station);
+  const { station, savings } = useStation();
   const costs = fuelCostSeries(station);
 
-  // Interactive Renewable Expansion Simulator state
+  const annualDieselL = savings ? (savings.actualDieselL / savings.periodDays) * 365 : station.dailyConsumptionL * 365;
+  const annualCo2Tonnes = Math.round((annualDieselL * station.co2PerLitreKg) / 1000);
+  const realDieselSavedL = savings ? (savings.savedDieselL / savings.periodDays) * 365 : 0;
+  const realCo2AvoidedTonnes = savings ? Math.round(((savings.co2AvoidedKg / savings.periodDays) * 365) / 1000) : 0;
+
   const [solarKw, setSolarKw] = useState(40);
   const [windTurbines, setWindTurbines] = useState(2);
   const [bessKwh, setBessKwh] = useState(150);
 
-  // Renewable simulation math
   const solarGenKwh = solarKw * station.daylightHours * 160;
   const windGenKwh = windTurbines * 30 * 2200;
   const bessEfficiencyOffset = (bessKwh / 500) * 0.08;
@@ -54,11 +56,9 @@ function SustainabilityPage() {
   const simulatedCostSavedK = Math.round((simulatedDieselSavedL * station.fuelCostPerLitre) / 1000);
 
   const compare = [
-    { t: "Current Diesel Baseline", co2: s.co2Tonnes },
-    { t: "Configured Renewable Hybrid", co2: Math.max(0, s.co2Tonnes - simulatedCo2SavedTonnes) },
+    { t: "Current Diesel Baseline", co2: annualCo2Tonnes },
+    { t: "Configured Renewable Hybrid", co2: Math.max(0, annualCo2Tonnes - simulatedCo2SavedTonnes) },
   ];
-  const savedCo2 = simulatedCo2SavedTonnes;
-  const savedCost = simulatedCostSavedK;
 
   const exportReport = () => {
     const csvContent = [
@@ -69,14 +69,16 @@ function SustainabilityPage() {
       ["Operating Mode", station.operatingMode],
       ["Fuel Type", station.fuelType],
       ["Landed Fuel Cost", `$${station.fuelCostPerLitre}/L`],
-      ["Annual Baseline Burn", `${s.annualLitres} L`],
-      ["Annual Baseline CO2 Emissions", `${s.co2Tonnes} tonnes`],
+      ["Annual Baseline Burn (from AI savings model)", `${Math.round(annualDieselL)} L`],
+      ["Annual Baseline CO2 Emissions", `${annualCo2Tonnes} tonnes`],
+      ["Real Diesel Saved vs Baseline (backend-calculated)", `${Math.round(realDieselSavedL)} L/yr`],
+      ["Real CO2 Avoided (backend-calculated)", `${realCo2AvoidedTonnes} tonnes/yr`],
       ["Simulated Solar PV", `${solarKw} kW`],
       ["Simulated Wind Turbines", `${windTurbines} x 30kW`],
       ["Simulated Battery Storage", `${bessKwh} kWh`],
       ["Simulated Annual Diesel Saved", `${simulatedDieselSavedL} L`],
-      ["Potential CO2 Savings", `${savedCo2} tonnes/year`],
-      ["Potential Cost Savings", `$${savedCost}k USD/year`],
+      ["Potential Additional CO2 Savings", `${simulatedCo2SavedTonnes} tonnes/year`],
+      ["Potential Cost Savings", `$${simulatedCostSavedK}k USD/year`],
       ["Audit Timestamp", new Date().toISOString()],
     ]
       .map((e) => e.map((x) => `"${x}"`).join(","))
@@ -121,31 +123,29 @@ function SustainabilityPage() {
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Annual CO₂ Emissions" value={s.co2Tonnes.toLocaleString()} unit="tonnes" source="NCPOR Emission Record" />
+        <StatCard label="Annual CO₂ Emissions" value={annualCo2Tonnes.toLocaleString()} unit="tonnes" source="AI Savings Model (backend)" />
         <StatCard
-          label="Renewable Hybrid Reduction"
-          value={Math.max(0, s.co2Tonnes - simulatedCo2SavedTonnes).toLocaleString()}
-          unit="tonnes"
-          hint={`-${simulatedCo2SavedTonnes} t CO₂ displacement`}
-          source="Renewable Microgrid Target"
+          label="Already Saved vs Baseline"
+          value={Math.round(realDieselSavedL).toLocaleString()}
+          unit="L/yr"
+          hint={`-${realCo2AvoidedTonnes} t CO₂/yr, from real dispatch optimization`}
+          source="Renewable Dispatch Engine"
         />
         <StatCard
           label="Annual Fuel Volume"
-          value={`${Math.round(s.annualLitres / 1000).toLocaleString()}k`}
+          value={`${Math.round(annualDieselL / 1000).toLocaleString()}k`}
           unit="Litres"
-          source="NCPOR Logistics Manifest"
+          source="AI Fuel Forecast"
         />
       </div>
 
-      {/* Interactive Renewable Expansion Simulator Panel */}
       <Panel
         className="mt-4 border-primary/30 bg-primary/5"
         title="Interactive Renewable Microgrid Expansion Simulator"
-        description="Simulate adding Solar PV, Wind Turbines, and Battery Energy Storage Systems (BESS) to calculate real-time diesel displacement & payback."
-        source="Modelled projection"
+        description="Simulate adding Solar PV, Wind Turbines, and Battery Energy Storage Systems (BESS) to calculate additional diesel displacement on top of current real savings."
+        source="Modelled projection, applied to real baseline"
       >
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Solar Slider */}
           <div className="rounded-lg border border-border/70 bg-card/50 p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
@@ -153,18 +153,10 @@ function SustainabilityPage() {
               </span>
               <span className="data-num font-bold text-primary">{solarKw} kW</span>
             </div>
-            <Slider
-              className="mt-3"
-              min={0}
-              max={150}
-              step={10}
-              value={[solarKw]}
-              onValueChange={(val) => setSolarKw(val?.[0] ?? 0)}
-            />
+            <Slider className="mt-3" min={0} max={150} step={10} value={[solarKw]} onValueChange={(val) => setSolarKw(val?.[0] ?? 0)} />
             <span className="mt-2 block text-[10px] text-muted-foreground">Est. generation: ~{Math.round(solarGenKwh / 1000)} MWh/yr</span>
           </div>
 
-          {/* Wind Slider */}
           <div className="rounded-lg border border-border/70 bg-card/50 p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
@@ -172,18 +164,10 @@ function SustainabilityPage() {
               </span>
               <span className="data-num font-bold text-primary">{windTurbines} units</span>
             </div>
-            <Slider
-              className="mt-3"
-              min={0}
-              max={4}
-              step={1}
-              value={[windTurbines]}
-              onValueChange={(val) => setWindTurbines(val?.[0] ?? 0)}
-            />
+            <Slider className="mt-3" min={0} max={4} step={1} value={[windTurbines]} onValueChange={(val) => setWindTurbines(val?.[0] ?? 0)} />
             <span className="mt-2 block text-[10px] text-muted-foreground">Est. generation: ~{Math.round(windGenKwh / 1000)} MWh/yr</span>
           </div>
 
-          {/* BESS Slider */}
           <div className="rounded-lg border border-border/70 bg-card/50 p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
@@ -191,40 +175,31 @@ function SustainabilityPage() {
               </span>
               <span className="data-num font-bold text-primary">{bessKwh} kWh</span>
             </div>
-            <Slider
-              className="mt-3"
-              min={0}
-              max={500}
-              step={25}
-              value={[bessKwh]}
-              onValueChange={(val) => setBessKwh(val?.[0] ?? 0)}
-            />
+            <Slider className="mt-3" min={0} max={500} step={25} value={[bessKwh]} onValueChange={(val) => setBessKwh(val?.[0] ?? 0)} />
             <span className="mt-2 block text-[10px] text-muted-foreground">Generator load smoothing offset: +{Math.round(bessEfficiencyOffset * 100)}%</span>
           </div>
         </div>
 
-        {/* Live Simulation Results Bar */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-border/60 pt-4 text-xs">
           <div className="flex items-center gap-4">
             <div>
-              <span className="text-muted-foreground">Diesel Saved:</span>
+              <span className="text-muted-foreground">Additional Diesel Saved:</span>
               <strong className="data-num ml-1 font-semibold text-nominal">+{simulatedDieselSavedL.toLocaleString()} L/yr</strong>
             </div>
             <div>
-              <span className="text-muted-foreground">CO₂ Reduced:</span>
+              <span className="text-muted-foreground">Additional CO₂ Reduced:</span>
               <strong className="data-num ml-1 font-semibold text-nominal">-{simulatedCo2SavedTonnes} tonnes/yr</strong>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Est. Annual Cost Savings:</span>
+            <span className="text-muted-foreground">Est. Additional Cost Savings:</span>
             <span className="data-num text-sm font-bold text-emerald-400">~${simulatedCostSavedK.toLocaleString()}k USD / year</span>
           </div>
         </div>
       </Panel>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <Panel title="Annual CO₂: 100% Diesel vs Hybrid Renewable Scenario" source="Modelled projection">
+        <Panel title="Annual CO₂: Current Baseline vs Further Renewable Expansion" source="AI Savings Model + Modelled projection">
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={compare} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
@@ -237,8 +212,8 @@ function SustainabilityPage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            <span>Potential Annual Savings:</span>
-            <span className="data-num font-semibold text-nominal">-{savedCo2.toLocaleString()} tonnes CO₂ / year</span>
+            <span>Potential Further Savings:</span>
+            <span className="data-num font-semibold text-nominal">-{simulatedCo2SavedTonnes.toLocaleString()} tonnes CO₂ / year</span>
           </div>
         </Panel>
 
@@ -256,14 +231,8 @@ function SustainabilityPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            <span>Projected Annual Savings with Renewable Microgrid:</span>
-            <span className="data-num font-semibold text-emerald-400">~${savedCost.toLocaleString()}k USD / year</span>
-          </div>
         </Panel>
       </div>
     </>
   );
 }
-
-

@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATIONS, type StationConfig, type StationId } from "@/lib/station-data";
+import { fetchDispatch, fetchCurrentConditions } from "@/lib/api";
+import { fetchFuel, fetchFuelForecast, fetchConsumption, fetchShiftRecommendations, fetchLoadShedding, fetchRenewables, fetchEquipmentHealth, fetchSavings } from "@/lib/api";
 
 interface LiveTelemetry {
   powerDrawKw: number;
@@ -11,11 +13,55 @@ interface LiveTelemetry {
   anomalyActive: boolean;
 }
 
+interface LiveFuel {
+  remainingL: number;
+  capacityL: number;
+  percent: number;
+  runwayDays: number | null;
+  runwayConfidence: { min: number; max: number } | null;
+  avgDailyConsumptionL: number;
+  history: { date: string; litres: number }[];
+}
+
+interface LoadInfo {
+  zoneBreakdown: { zone: string; kw: number }[];
+  shedding: { required: boolean; message: string; shedZones: any[] };
+  shiftRecommendation: { zone: string; reason: string; surplusKw: number } | null;
+}
+
+interface EnvHistoryPoint {
+  t: string;
+  solar: number;
+  wind: number;
+  temp: number;
+}
+
+interface EquipmentAlert {
+  equipment_id: string;
+  severity: string;
+  latest_anomaly_time?: string;
+  vibration_deviation_from_normal?: number;
+  temperature_deviation_from_normal?: number;
+}
+
+interface SavingsInfo {
+  actualDieselL: number;
+  savedDieselL: number;
+  co2AvoidedKg: number;
+  periodDays: number;
+}
+
 interface StationContextValue {
   stationId: StationId;
   station: StationConfig;
   setStationId: (id: StationId) => void;
   telemetry: LiveTelemetry;
+  liveFuel: LiveFuel | null;
+  loadInfo: LoadInfo | null;
+  envHistory: EnvHistoryPoint[];
+  equipmentHealth: EquipmentAlert[];
+  savings: SavingsInfo | null;
+
   triggerAnomaly: () => void;
   clearAnomaly: () => void;
   isSatMode: boolean;
@@ -49,22 +95,23 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   const rawStation = STATIONS[stationId];
 
-  // Dynamically derive seasonal adjustments
   const baseStation: StationConfig = useMemo(() => {
     if (season === "summer") {
       return {
         ...rawStation,
         polarPhase: "polar day",
         daylightHours: 24,
-        outsideTempC: stationId === "himadri" ? 4.8 : stationId === "bharati" ? 1.5 : -2.4,
-        headcount: stationId === "himadri" ? 12 : stationId === "bharati" ? 42 : 55,
       };
     }
     return rawStation;
   }, [rawStation, season, stationId]);
 
-  // Initial live telemetry state synced synchronously with baseStation
-  const [telemetry, setTelemetry] = useState<LiveTelemetry>(() => ({
+  const [liveFuel, setLiveFuel] = useState<LiveFuel | null>(null);
+  const [loadInfo, setLoadInfo] = useState<LoadInfo | null>(null);
+  const [envHistory, setEnvHistory] = useState<EnvHistoryPoint[]>([]);
+  const [equipmentHealth, setEquipmentHealth] = useState<EquipmentAlert[]>([]);
+  const [savings, setSavings] = useState<SavingsInfo | null>(null);
+  const [telemetry, setTelemetry] = useState<LiveTelemetry>({
     powerDrawKw: baseStation.powerDrawKw,
     utilizationPct: (baseStation.powerDrawKw / baseStation.generatorCapacityKw) * 100,
     flowRateLph: Number((baseStation.dailyConsumptionL / 24).toFixed(1)),
@@ -72,9 +119,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
     windSpeedMs: baseStation.windSpeedMs,
     gridFrequencyHz: 50.0,
     anomalyActive: false,
-  }));
+  });
 
-  // Synchronous station switch handler to prevent 2s telemetry lag
   const setStationId = (id: StationId) => {
     setStationIdState(id);
     if (typeof window !== "undefined") {
@@ -85,47 +131,224 @@ export function StationProvider({ children }: { children: ReactNode }) {
       }
     }
     setAnomalyActive(false);
-    const newBase = STATIONS[id];
-    setTelemetry({
-      powerDrawKw: newBase.powerDrawKw,
-      utilizationPct: (newBase.powerDrawKw / newBase.generatorCapacityKw) * 100,
-      flowRateLph: Number((newBase.dailyConsumptionL / 24).toFixed(1)),
-      tempC: newBase.outsideTempC,
-      windSpeedMs: newBase.windSpeedMs,
-      gridFrequencyHz: 50.0,
-      anomalyActive: false,
-    });
   };
 
+  // Poll the REAL backend for live telemetry instead of generating random jitter.
+  // Fast endpoints only (dispatch, current-conditions) - never the slow Prophet ones here.
   useEffect(() => {
-    // In Sat Mode, telemetry refreshes less frequently (10s) to simulate bandwidth constraint
-    const tickIntervalMs = isSatMode ? 10000 : 2000;
-    const interval = setInterval(() => {
-      const anomalyFactor = anomalyActive ? 1.35 : 1;
-      const kwJitter = (Math.random() - 0.5) * 2.5;
-      const currentKw = Math.max(
-        10,
-        Number((baseStation.powerDrawKw * anomalyFactor + kwJitter).toFixed(1)),
-      );
-      const util = Number(((currentKw / baseStation.generatorCapacityKw) * 100).toFixed(1));
-      const flow = Number(((baseStation.dailyConsumptionL * anomalyFactor) / 24 + (Math.random() - 0.5) * 1.2).toFixed(1));
-      const temp = Number((baseStation.outsideTempC + (Math.random() - 0.5) * 0.4).toFixed(1));
-      const wind = Math.max(0, Number((baseStation.windSpeedMs + (Math.random() - 0.5) * 0.8).toFixed(1)));
-      const freq = Number((50.0 + (Math.random() - 0.5) * 0.06).toFixed(2));
+    let cancelled = false;
 
-      setTelemetry({
-        powerDrawKw: currentKw,
-        utilizationPct: util,
-        flowRateLph: flow,
-        tempC: temp,
-        windSpeedMs: wind,
-        gridFrequencyHz: freq,
-        anomalyActive,
-      });
-    }, tickIntervalMs);
+    async function refreshFromBackend() {
+      try {
+        const [dispatch, conditions] = await Promise.all([
+          fetchDispatch(stationId),
+          fetchCurrentConditions(stationId),
+        ]);
 
-    return () => clearInterval(interval);
-  }, [baseStation, anomalyActive, isSatMode]);
+        if (cancelled) return;
+
+        const currentKw = dispatch.demand_kw ?? baseStation.powerDrawKw;
+        const util = baseStation.generatorCapacityKw > 0
+          ? Number(((currentKw / baseStation.generatorCapacityKw) * 100).toFixed(1))
+          : 0;
+
+        setTelemetry({
+          powerDrawKw: currentKw,
+          utilizationPct: util,
+          flowRateLph: Number((baseStation.dailyConsumptionL / 24).toFixed(1)),
+          tempC: conditions.temp_c ?? baseStation.outsideTempC,
+          windSpeedMs: conditions.wind_ms ?? baseStation.windSpeedMs,
+          gridFrequencyHz: 50.0,
+          anomalyActive,
+        });
+      } catch (err) {
+        console.warn("Backend fetch failed, keeping last known telemetry:", err);
+      }
+    }
+
+    refreshFromBackend();
+    const tickIntervalMs = isSatMode ? 15000 : 5000;
+    const interval = setInterval(refreshFromBackend, tickIntervalMs);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId, baseStation, anomalyActive, isSatMode]);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function refreshFuel() {
+      try {
+        const [fuelData, forecast] = await Promise.all([
+          fetchFuel(stationId),
+          fetchFuelForecast(stationId),
+        ]);
+        if (cancelled) return;
+
+        const latest = fuelData.fuel?.[0];
+        const allReadings = fuelData.fuel ?? [];
+        if (latest) {
+          const avgConsumption = allReadings.length > 0
+            ? allReadings.reduce((sum: number, r: any) => sum + r.diesel_consumed_today, 0) / allReadings.length
+            : baseStation.dailyConsumptionL;
+
+          const history = [...allReadings].reverse().map((r: any) => ({
+            date: r.timestamp.slice(5, 10),
+            litres: Math.round(r.diesel_consumed_today),
+          }));
+
+          setLiveFuel({
+            remainingL: latest.diesel_liters_remaining,
+            capacityL: baseStation.fuelCapacityL,
+            percent: (latest.diesel_liters_remaining / baseStation.fuelCapacityL) * 100,
+            runwayDays: forecast.days_remaining ?? null,
+            runwayConfidence: forecast.confidence_range
+              ? { min: forecast.confidence_range.min_days, max: forecast.confidence_range.max_days }
+              : null,
+            avgDailyConsumptionL: Math.round(avgConsumption),
+            history,
+          });
+        }
+      } catch (err) {
+        console.warn("Fuel fetch failed:", err);
+      }
+    }
+
+    refreshFuel();
+    const interval = setInterval(refreshFuel, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId, baseStation]);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function refreshLoadInfo() {
+      try {
+        const [consumption, shedding, shift] = await Promise.all([
+          fetchConsumption(stationId),
+          fetchLoadShedding(stationId),
+          fetchShiftRecommendations(stationId),
+        ]);
+        if (cancelled) return;
+
+        const latestByZone: Record<string, number> = {};
+        for (const row of consumption.consumption ?? []) {
+          if (!(row.zone in latestByZone)) {
+            latestByZone[row.zone] = row.power_kw;
+          }
+        }
+        const zoneBreakdown = Object.entries(latestByZone).map(([zone, kw]) => ({ zone, kw }));
+
+        const firstRec = shift.recommendations?.[0];
+
+        setLoadInfo({
+          zoneBreakdown,
+          shedding: {
+            required: shedding.shedding_required ?? false,
+            message: shedding.message ?? "",
+            shedZones: shedding.shed_zones ?? [],
+          },
+          shiftRecommendation: firstRec
+            ? { zone: firstRec.zone, reason: firstRec.reason, surplusKw: firstRec.available_surplus_kw }
+            : null,
+        });
+      } catch (err) {
+        console.warn("Load info fetch failed:", err);
+      }
+    }
+
+    refreshLoadInfo();
+    const interval = setInterval(refreshLoadInfo, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId]);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function refreshEnvHistory() {
+      try {
+        const renewables = await fetchRenewables(stationId);
+        if (cancelled) return;
+
+        const points = [...(renewables.renewables ?? [])].reverse().map((r: any) => ({
+          t: r.timestamp.slice(5, 16).replace("T", " "),
+          solar: r.solar_kw,
+          wind: r.wind_kw,
+          temp: baseStation.outsideTempC,
+        }));
+        setEnvHistory(points);
+      } catch (err) {
+        console.warn("Environmental history fetch failed:", err);
+      }
+    }
+
+    refreshEnvHistory();
+    const interval = setInterval(refreshEnvHistory, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId, baseStation]);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function refreshEquipmentHealth() {
+      try {
+        const result = await fetchEquipmentHealth(stationId);
+        if (cancelled) return;
+        setEquipmentHealth(result.equipment_health ?? []);
+      } catch (err) {
+        console.warn("Equipment health fetch failed:", err);
+      }
+    }
+
+    refreshEquipmentHealth();
+    const interval = setInterval(refreshEquipmentHealth, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId]);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function refreshSavings() {
+      try {
+        const result = await fetchSavings(stationId);
+        if (cancelled) return;
+        setSavings({
+          actualDieselL: result.actual_diesel_used_liters ?? 0,
+          savedDieselL: result.diesel_saved_liters ?? 0,
+          co2AvoidedKg: result.co2_avoided_kg ?? 0,
+          periodDays: result.period_days ?? 0,
+        });
+      } catch (err) {
+        console.warn("Savings fetch failed:", err);
+      }
+    }
+
+    refreshSavings();
+    const interval = setInterval(refreshSavings, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [stationId]);
 
   const triggerAnomaly = () => setAnomalyActive(true);
   const clearAnomaly = () => setAnomalyActive(false);
@@ -138,6 +361,11 @@ export function StationProvider({ children }: { children: ReactNode }) {
       station: baseStation,
       setStationId,
       telemetry,
+      liveFuel,
+      loadInfo,
+      envHistory,
+      equipmentHealth,
+      savings,
       triggerAnomaly,
       clearAnomaly,
       isSatMode,
@@ -145,7 +373,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       season,
       toggleSeason,
     }),
-    [stationId, baseStation, telemetry, anomalyActive, isSatMode, season],
+    [stationId, baseStation, telemetry, liveFuel, loadInfo, envHistory, equipmentHealth, savings, anomalyActive, isSatMode, season],
   );
 
   return <StationContext.Provider value={value}>{children}</StationContext.Provider>;
@@ -157,7 +385,6 @@ export function useStation() {
   return ctx;
 }
 
-/** Legacy jitter helper for standalone usage. */
 export function useLiveValue(base: number, amplitude = 0.015, intervalMs = 2200) {
   const [value, setValue] = useState(base);
 
