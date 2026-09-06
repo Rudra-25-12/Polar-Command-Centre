@@ -133,6 +133,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   const setStationId = useCallback((id: StationId) => {
     setStationIdState(id);
+    setLiveFuel(null);
+    setLiveBattery(null);
+    setLoadInfo(null);
+    setEnvHistory([]);
+    setEquipmentHealth([]);
+    setSavings(null);
     if (typeof window !== "undefined") {
       try {
         window.localStorage.setItem(STORAGE_KEY, id);
@@ -184,6 +190,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
             capacityKwh: batteryRes.capacity_kwh ?? (stationId === "bharati" ? 20.0 : 25.0),
             percent: batteryRes.percent ?? Number(((batteryRes.charge_kwh / (batteryRes.capacity_kwh ?? 20.0)) * 100).toFixed(1)),
           });
+        } else {
+          setLiveBattery(null);
         }
       } catch (err) {
         console.warn("Backend fetch failed, keeping last known telemetry:", err);
@@ -235,6 +243,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
             avgDailyConsumptionL: Math.round(avgConsumption),
             history,
           });
+        } else {
+          setLiveFuel(null);
         }
       } catch (err) {
         console.warn("Fuel fetch failed:", err);
