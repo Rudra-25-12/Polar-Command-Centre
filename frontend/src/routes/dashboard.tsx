@@ -154,7 +154,11 @@ function DashboardOverview() {
           unit="days"
           icon={Clock}
           severity={sev}
-          hint={isHimadri ? `Emergency reserve at ${station.dailyConsumptionL} L/d` : `At ${station.dailyConsumptionL.toLocaleString()} L/day`}
+          hint={
+            isHimadri
+              ? `Emergency reserve at ${(liveFuel?.avgDailyConsumptionL ?? station.dailyConsumptionL).toLocaleString()} L/day`
+              : `At ${(liveFuel?.avgDailyConsumptionL ?? station.dailyConsumptionL).toLocaleString()} L/day`
+          }
           source="Modelled projection"
         />
       </div>

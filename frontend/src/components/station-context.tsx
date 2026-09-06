@@ -212,8 +212,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
         ]);
         if (cancelled) return;
 
-        const latest = fuelData.fuel?.[0];
         const allReadings = fuelData.fuel ?? [];
+        const latest = allReadings.length > 0 ? allReadings[allReadings.length - 1] : null;
         if (latest) {
           const avgConsumption = allReadings.length > 0
             ? allReadings.reduce((sum: number, r: any) => sum + r.diesel_consumed_today, 0) / allReadings.length
