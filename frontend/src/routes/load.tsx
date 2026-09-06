@@ -45,6 +45,7 @@ const KEYS = [
 
 function LoadPage() {
   const { station, telemetry, loadInfo } = useStation();
+  const [simulatedDeficit, setSimulatedDeficit] = useState(false);
   const data = useMemo(() => loadBreakdownSeries(station), [station.id]);
 
   const zoneKw = (zone: string) => {
@@ -98,11 +99,72 @@ function LoadPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel
-          title="AI-Driven Load Shedding Status"
-          description="Automatic safety-tiered shedding decision based on current supply vs demand."
-          source="Load Shedding Engine"
+          title="AI-Driven Load Shedding Engine"
+          description="Automatic safety-tiered shedding protects life-critical loads (heating & medical) when supply drops."
+          source="Load Shedding Engine (decide_load_shedding)"
+          action={
+            <button
+              onClick={() => setSimulatedDeficit((prev) => !prev)}
+              className={cn(
+                "rounded-md border px-3 py-1 text-xs font-semibold transition-all cursor-pointer shadow-xs",
+                simulatedDeficit
+                  ? "border-red-500 bg-red-500 text-white"
+                  : "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20",
+              )}
+            >
+              {simulatedDeficit ? "Stop Power Drop Simulation" : "Simulate 40% Power Drop"}
+            </button>
+          }
         >
-          {shedding ? (
+          {simulatedDeficit ? (
+            <div className="space-y-3 rounded-lg border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/20 p-4 text-xs">
+              <div className="flex items-center justify-between border-b border-red-200 dark:border-red-800/60 pb-2">
+                <div className="flex items-center gap-2 font-bold text-red-700 dark:text-red-300">
+                  <ShieldAlert className="size-4 text-red-500 animate-pulse" />
+                  <span>SIMULATED POWER DEFICIT ACTIVE (-40% Supply)</span>
+                </div>
+                <span className="rounded bg-red-100 dark:bg-red-900/60 border border-red-300 px-2 py-0.5 text-[10px] font-mono font-bold text-red-800 dark:text-red-200">
+                  Shortfall: { (totalRealKw * 0.4).toFixed(1) } kW
+                </span>
+              </div>
+
+              <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+                Supply dropped below demand. The <strong>Load Shedding Engine</strong> automatically shut off Tier 3 (non-essential) circuits first to protect Tier 1 (heating & medical).
+              </p>
+
+              <div className="space-y-2 pt-1 font-mono text-[11px]">
+                <div className="flex items-center justify-between rounded-md border border-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 p-2 text-emerald-900 dark:text-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Tier 1: Space Heating, Medical Fridges & Life Support</span>
+                  </div>
+                  <span className="font-bold uppercase tracking-wider text-[10px] bg-emerald-200 dark:bg-emerald-900 px-1.5 py-0.5 rounded">
+                    100% ONLINE (PROTECTED)
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-100/80 dark:bg-amber-950/40 p-2 text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center gap-2">
+                    <Clock className="size-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Tier 2: Scientific Labs & Data Acquisition Arrays</span>
+                  </div>
+                  <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200 dark:bg-amber-900 px-1.5 py-0.5 rounded">
+                    REDUCED (50% POWER)
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border border-red-300 bg-red-100/80 dark:bg-red-950/40 p-2 text-red-900 dark:text-red-200 opacity-75">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="size-3.5 text-red-600 dark:text-red-400" />
+                    <span>Tier 3: Extra Lighting, Snow Melter & Sauna</span>
+                  </div>
+                  <span className="font-bold uppercase tracking-wider text-[10px] bg-red-200 dark:bg-red-900 px-1.5 py-0.5 rounded">
+                    AUTOMATICALLY SHUT OFF
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : shedding ? (
             <div
               className={cn(
                 "rounded-lg border p-4 text-xs leading-relaxed",
@@ -111,9 +173,12 @@ function LoadPage() {
                   : "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-950 dark:text-emerald-100",
               )}
             >
-              <div className="flex items-center gap-2 font-semibold">
-                {shedding.required ? <ShieldAlert className="size-4" /> : <CheckCircle2 className="size-4" />}
-                <span>{shedding.required ? "Shedding Active" : "Supply Meets Demand"}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold">
+                  {shedding.required ? <ShieldAlert className="size-4" /> : <CheckCircle2 className="size-4" />}
+                  <span>{shedding.required ? "Shedding Active" : "Supply Meets Demand"}</span>
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground">Click "Simulate 40% Power Drop" to test</span>
               </div>
               <p className="mt-2">{shedding.message}</p>
               {shedding.shedZones.length > 0 && (
